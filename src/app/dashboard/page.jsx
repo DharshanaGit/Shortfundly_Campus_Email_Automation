@@ -14,6 +14,7 @@ import EmailRecordsTable from '@/components/EmailRecordsTable.jsx';
 import TemplateManager from '@/components/TemplateManager.jsx';
 import SettingsView from '@/components/SettingsView.jsx';
 import SmtpDiagnosticsModal from '@/components/SmtpDiagnosticsModal.jsx';
+import MonitoringDashboard from '@/components/MonitoringDashboard.jsx';
 import {
   RefreshCwIcon,
   ServerIcon,
@@ -200,6 +201,8 @@ export default function DashboardPage() {
         return 'Dashboard';
       case 'campaigns':
         return 'Campaign Reports';
+      case 'monitoring':
+        return 'Monthly Automation & Monitoring';
       case 'sender':
         return senderSubMode === 'manual'
           ? 'Single Email'
@@ -297,6 +300,11 @@ export default function DashboardPage() {
           {/* TAB 2: Campaign Tracking & Reports */}
           {activeTab === 'campaigns' && (
             <CampaignTrackingView session={user} />
+          )}
+
+          {/* TAB: Monthly College Automation & Monitoring */}
+          {activeTab === 'monitoring' && (
+            <MonitoringDashboard session={user} />
           )}
 
           {/* TAB 3: Campus Dispatcher */}

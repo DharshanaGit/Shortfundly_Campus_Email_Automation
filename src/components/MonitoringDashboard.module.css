@@ -1,0 +1,629 @@
+/* Monthly College Automation & Monitoring Dashboard Styles */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Header & Banner */
+.headerCard {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border: 1px solid #334155;
+  border-radius: 14px;
+  padding: 24px 28px;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.4);
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 650px;
+}
+
+.headerTitle {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.headerSubtitle {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.headerBadges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.schedulerPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.pulseDot {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pulseGreen 2s infinite;
+}
+
+@keyframes pulseGreen {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.timezoneBadge {
+  font-size: 11.5px;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 8 Metrics Cards Grid */
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.metricCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.metricCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.08);
+}
+
+.metricCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #0d9488;
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cardLabel {
+  font-size: 12px;
+  font-weight: 650;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.cardIconWrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #0d9488;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cardValue {
+  font-size: 24px;
+  font-weight: 850;
+  color: #0f172a;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+.cardValueSm {
+  font-size: 15px;
+  font-weight: 750;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.cardSub {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Automation Status Section */
+.statusCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 22px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.statusHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 14px;
+}
+
+.statusHeaderTitle {
+  font-size: 15px;
+  font-weight: 750;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statusSplit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 860px) {
+  .statusSplit {
+    grid-template-columns: 1fr;
+  }
+}
+
+.statusBlock {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.blockTitle {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+}
+
+.infoLabel {
+  color: #64748b;
+}
+
+.infoVal {
+  color: #0f172a;
+  font-weight: 650;
+  font-family: var(--font-mono, monospace);
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.badgeSuccess {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.badgeRunning {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.badgeQueued {
+  background: #fef9c3;
+  color: #a16207;
+  border: 1px solid #fef08a;
+}
+
+.badgeFailed {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* Refresh Controls Section */
+.controlsCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 22px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.controlsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.controlsTitle {
+  font-size: 15px;
+  font-weight: 750;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.controlsDesc {
+  font-size: 12.5px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.controlsRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.stateSelect {
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  min-width: 260px;
+  cursor: pointer;
+}
+
+.stateSelect:focus {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: #0d9488;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnState {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: #0d9488;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnState:hover:not(:disabled) {
+  background: #0f766e;
+  transform: translateY(-1px);
+}
+
+.btnState:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnRetry {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #ffffff;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-size: 13px;
+  font-weight: 650;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnRetry:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+
+.btnRetry:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Active Running Progress Banner */
+.progressBanner {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.progressTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #0f766e;
+}
+
+.progressBarTrack {
+  height: 6px;
+  background: #ccfbf1;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progressBarFill {
+  height: 100%;
+  background: #0d9488;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Audit Logs Table */
+.tableCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 22px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tableTitle {
+  font-size: 15px;
+  font-weight: 750;
+  color: #0f172a;
+}
+
+.tableSubtitle {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.auditTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.auditTable th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.auditTable td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+}
+
+.auditTable tr:hover td {
+  background: #f8fafc;
+}
+
+.changeBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.badgeNew {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.badgeUpdate {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.badgeWeb {
+  background: #fdf4ff;
+  color: #a21caf;
+  border: 1px solid #f5d0fe;
+}
+
+/* Modal Confirmation for Nationwide Refresh */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modalContent {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 26px 28px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: modalIn 0.15s ease-out;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modalTitle {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modalBody {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.btnCancel {
+  padding: 9px 16px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.btnConfirm {
+  padding: 9px 18px;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btnConfirm:hover {
+  background: #0d9488;
+}

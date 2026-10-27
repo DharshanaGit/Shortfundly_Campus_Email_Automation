@@ -11,6 +11,7 @@ import {
   UserIcon,
   CampaignPulseLogoSymbol,
   BarChartIcon,
+  GlobeIcon,
 } from './Icons';
 
 export default function Sidebar({ activeTab, setActiveTab, session, onLogout }) {
@@ -44,6 +45,12 @@ export default function Sidebar({ activeTab, setActiveTab, session, onLogout }) 
       id: 'campaigns',
       label: 'Campaign Reports',
       icon: <BarChartIcon size={17} />,
+    },
+    {
+      id: 'monitoring',
+      label: 'Monthly Automation',
+      icon: <GlobeIcon size={17} />,
+      badge: 'Celery',
     },
     {
       id: 'templates',
