@@ -569,7 +569,7 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
 
       if (colleges.length === 0) {
         setGeoNotice(
-          `The selected region (${statesArr.join(', ')}) currently has 0 college records in the database. You can import contacts using the Custom Spreadsheet Importer below.`
+          `The selected region (${statesArr.join(', ')}) currently has 0 verified college contacts in the database. The Celery Beat monthly sync engine audits official regulatory portals (AISHE, UGC, AICTE) periodically to add updated contacts.`
         );
         setRecipients([]);
         setFileName('');
@@ -1268,9 +1268,9 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
       <div className={styles.geoCard}>
         <div className={styles.geoHeader}>
           <div>
-            <div className={styles.uploadTitle}>🌐 Select Country and States</div>
+            <div className={styles.uploadTitle}>🌐 Pan-India Regulatory Directory Targeting</div>
             <div className={styles.uploadSub}>
-              Choose a country and one or more states to load colleges, or upload your own CSV file below.
+              Select one or more states below to internally load colleges and verified contacts directly from the regulatory database (AISHE, UGC, AICTE). No manual file import needed.
             </div>
           </div>
           {countriesList.length > 0 && (
@@ -1512,67 +1512,6 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
         </div>
       </div>
 
-      {/* 1-Click Loadable Unstress Dataset Card */}
-      <div className={styles.loadDatasetCard}>
-        <div className={styles.loadDatasetInfo}>
-          <div className={styles.loadDatasetTitle}>
-            <span>⚡ Officially Verified Andhra Pradesh Master Higher Education Directory</span>
-            <span className={styles.unstressShieldBadge}>1,832 Colleges • 0 Duplicates</span>
-          </div>
-          <div className={styles.loadDatasetSub}>
-            Includes Engineering, Pharmacy, MBA, MCA, Medical, Law, State &amp; Central Universities, Principals, HODs, Deans &amp; TPOs.
-          </div>
-        </div>
-
-        <div className={styles.loadDatasetActions}>
-          <button
-            type="button"
-            className={styles.btnLoadDataset}
-            onClick={handleLoadAPMasterDataset}
-            disabled={loadingDataset}
-          >
-            {loadingDataset ? (
-              <>
-                <RefreshCwIcon size={16} className={styles.spinIcon} />
-                <span>Loading Directory...</span>
-              </>
-            ) : (
-              <>
-                <span>Load AP Master Dataset</span>
-              </>
-            )}
-          </button>
-
-          <a
-            href="/Andhra_Pradesh_Dataset/Andhra_Pradesh_Master_College_Directory_2026.xlsx"
-            download="Andhra_Pradesh_Master_College_Directory_2026.xlsx"
-            className={styles.downloadSampleBtn}
-          >
-            📥 Download Master Excel (.xlsx)
-          </a>
-        </div>
-      </div>
-
-      {/* Multi-Sheet Selector if multi-sheet file is loaded */}
-      {availableSheets.length > 1 && (
-        <div className={styles.sheetSelectorBar}>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e3a8a' }}>
-            📑 Directory Sheets:
-          </div>
-          <div className={styles.sheetTabsWrapper}>
-            {availableSheets.map((sName) => (
-              <button
-                key={sName}
-                type="button"
-                className={`${styles.sheetTab} ${activeSheetName === sName ? styles.sheetTabActive : ''}`}
-                onClick={() => handleSheetSwitch(sName)}
-              >
-                {sName}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Active Database-Loaded Dataset Banner (Direct Database Ingestion Only - No Excel/CSV file upload) */}
       {fileName ? (
