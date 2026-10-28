@@ -9,6 +9,7 @@ import {
   EyeIcon,
   ShieldAlertIcon,
   AlertCircleIcon,
+  CheckCircleIcon,
   RefreshCwIcon
 } from './Icons.jsx';
 
@@ -50,7 +51,6 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
           if (data.templates && data.templates.length > 0) {
             setAvailableTemplates(data.templates);
             setFormData((prev) => {
-              // Keep previous template if valid, otherwise select first available
               const exists = data.templates.some((t) => t.id === prev.template_id);
               return { ...prev, template_id: exists ? prev.template_id : data.templates[0].id };
             });
@@ -91,16 +91,60 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
     }
   };
 
+  // Real-time strict validation while typing
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
 
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: null }));
+    const updatedErrors = { ...errors };
+
+    // 1. College Name: NO numbers allowed
+    if (name === 'college_name') {
+      if (/[0-9]/.test(value)) {
+        updatedErrors.college_name = 'Numbers are not allowed in college name. Please enter letters only.';
+      } else {
+        delete updatedErrors.college_name;
+      }
     }
+
+    // 2. Recipient Email: NO capital letters allowed while typing
     if (name === 'email') {
       setDuplicateWarning(null);
+      if (/[A-Z]/.test(value)) {
+        updatedErrors.email = 'Capital letters are not allowed in email. Use only lowercase letters and numbers.';
+      } else {
+        delete updatedErrors.email;
+      }
     }
+
+    // 3. Department: NO numbers allowed
+    if (name === 'department') {
+      if (/[0-9]/.test(value)) {
+        updatedErrors.department = 'Numbers are not allowed in department name. Please enter letters only.';
+      } else {
+        delete updatedErrors.department;
+      }
+    }
+
+    // 4. Contact Person: NO numbers allowed
+    if (name === 'contact_person') {
+      if (/[0-9]/.test(value)) {
+        updatedErrors.contact_person = 'Numbers are not allowed in contact person name. Please enter letters only.';
+      } else {
+        delete updatedErrors.contact_person;
+      }
+    }
+
+    // 5. Designation: NO numbers allowed
+    if (name === 'designation') {
+      if (/[0-9]/.test(value)) {
+        updatedErrors.designation = 'Numbers are not allowed in designation. Please enter letters only.';
+      } else {
+        delete updatedErrors.designation;
+      }
+    }
+
+    setErrors(updatedErrors);
   };
 
   const handleReset = () => {
@@ -121,18 +165,39 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Client-side validation
     const newErrors = {};
+
+    // College Name Validation
     if (!formData.college_name.trim()) {
       newErrors.college_name = 'College name is required';
+    } else if (/[0-9]/.test(formData.college_name)) {
+      newErrors.college_name = 'Numbers are not allowed in college name. Please enter letters only.';
     }
+
+    // Email Validation
     if (!formData.email.trim()) {
       newErrors.email = 'Recipient college email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-      newErrors.email = 'Please provide a valid email format';
+    } else if (/[A-Z]/.test(formData.email)) {
+      newErrors.email = 'Capital letters are not allowed in email. Use only lowercase letters and numbers.';
+    } else if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(formData.email.trim().toLowerCase())) {
+      newErrors.email = 'Please provide a valid recipient email address format';
     }
+
+    // Department Validation
     if (!formData.department.trim()) {
       newErrors.department = 'Department / faculty name is required';
+    } else if (/[0-9]/.test(formData.department)) {
+      newErrors.department = 'Numbers are not allowed in department name. Please enter letters only.';
+    }
+
+    // Contact Person Validation (Optional but strict)
+    if (formData.contact_person && /[0-9]/.test(formData.contact_person)) {
+      newErrors.contact_person = 'Numbers are not allowed in contact person name. Please enter letters only.';
+    }
+
+    // Designation Validation (Optional but strict)
+    if (formData.designation && /[0-9]/.test(formData.designation)) {
+      newErrors.designation = 'Numbers are not allowed in designation. Please enter letters only.';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -143,9 +208,13 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
     // Launch email review & edit modal with populated template
     onOpenReview({
       ...formData,
+      email: formData.email.trim().toLowerCase(),
       duplicateWarning,
     });
   };
+
+  const hasValidationErrors = Object.keys(errors).length > 0;
+  const isFormIncomplete = !formData.college_name.trim() || !formData.email.trim() || !formData.department.trim();
 
   return (
     <div className={styles.container}>
@@ -195,10 +264,11 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
                 id="college_name"
                 name="college_name"
                 type="text"
-                className={styles.input}
+                className={`${styles.input} ${errors.college_name ? styles.inputError : ''}`}
                 placeholder="e.g. PSG College of Technology"
                 value={formData.college_name}
                 onChange={handleChange}
+                required
               />
             </div>
             {errors.college_name && (
@@ -225,11 +295,12 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
                 id="email"
                 name="email"
                 type="email"
-                className={styles.input}
-                placeholder="e.g. placement@psgtech.edu / hod.media@college.edu"
+                className={`${styles.input} ${errors.email ? styles.inputError : ''}`}
+                placeholder="e.g. dachudharshana17@gmail.com / placement@college.edu"
                 value={formData.email}
                 onChange={handleChange}
                 onBlur={handleEmailBlur}
+                required
               />
             </div>
             {errors.email && (
@@ -262,10 +333,11 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
                 id="department"
                 name="department"
                 type="text"
-                className={styles.input}
-                placeholder="e.g. Media & Visual Communication / Student Film Society"
+                className={`${styles.input} ${errors.department ? styles.inputError : ''}`}
+                placeholder="e.g. Information Technology with Data Science"
                 value={formData.department}
                 onChange={handleChange}
+                required
               />
             </div>
             {errors.department && (
@@ -287,12 +359,18 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
                 id="contact_person"
                 name="contact_person"
                 type="text"
-                className={styles.input}
-                placeholder="e.g. Dr. R. Sundaram (Leave blank for Sir/Madam)"
+                className={`${styles.input} ${errors.contact_person ? styles.inputError : ''}`}
+                placeholder="e.g. Dr. R. Sundaram (Letters only)"
                 value={formData.contact_person}
                 onChange={handleChange}
               />
             </div>
+            {errors.contact_person && (
+              <div className={styles.errorText}>
+                <AlertCircleIcon size={12} />
+                <span>{errors.contact_person}</span>
+              </div>
+            )}
           </div>
 
           {/* Designation */}
@@ -306,12 +384,18 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
                 id="designation"
                 name="designation"
                 type="text"
-                className={styles.input}
-                placeholder="e.g. Faculty Coordinator / Placement Officer"
+                className={`${styles.input} ${errors.designation ? styles.inputError : ''}`}
+                placeholder="e.g. Principal / Faculty Coordinator (Letters only)"
                 value={formData.designation}
                 onChange={handleChange}
               />
             </div>
+            {errors.designation && (
+              <div className={styles.errorText}>
+                <AlertCircleIcon size={12} />
+                <span>{errors.designation}</span>
+              </div>
+            )}
           </div>
 
           {/* Template Selection */}
@@ -347,6 +431,8 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
           <button
             type="submit"
             className={styles.reviewBtn}
+            disabled={hasValidationErrors || isFormIncomplete}
+            title={hasValidationErrors ? 'Please fix validation errors before proceeding' : 'Preview and send proposal'}
           >
             <EyeIcon size={16} />
             <span>Preview &amp; Send Email</span>

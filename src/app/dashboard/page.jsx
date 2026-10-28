@@ -200,7 +200,7 @@ export default function DashboardPage() {
       case 'dashboard':
         return 'Dashboard';
       case 'campaigns':
-        return 'Campaign Reports';
+        return 'Mails tracker';
       case 'monitoring':
         return 'Monthly Automation & Monitoring';
       case 'sender':

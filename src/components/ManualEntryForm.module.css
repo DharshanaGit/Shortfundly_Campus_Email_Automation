@@ -140,6 +140,22 @@
   gap: 4px;
 }
 
+.errorText {
+  font-size: 11.5px;
+  color: #dc2626;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  animation: fadeIn 0.15s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .select {
   width: 100%;
   padding: 10px 14px 10px 38px;

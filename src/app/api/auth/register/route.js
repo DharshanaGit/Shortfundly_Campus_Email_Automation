@@ -27,7 +27,7 @@ export async function POST(request) {
       );
     }
 
-    // 2. Strict Email Validation (All rules applied)
+    // 2. Strict Email Validation: Numbers allowed, NO capital letters allowed, must end with @gmail.com
     if (!email || typeof email !== 'string') {
       return NextResponse.json(
         { success: false, error: 'Email address is required.' },
@@ -37,24 +37,16 @@ export async function POST(request) {
 
     const rawEmail = email.trim();
 
-    // Check for capital letters
+    // Check for capital letters (strict rule: NO caps allowed)
     if (/[A-Z]/.test(rawEmail)) {
       return NextResponse.json(
-        { success: false, error: 'Capital letters are not allowed in email. Use only lowercase letters.' },
+        { success: false, error: 'Capital letters are not allowed in email. Use only lowercase letters and numbers.' },
         { status: 400 }
       );
     }
 
-    // Check for numbers
-    if (/[0-9]/.test(rawEmail)) {
-      return NextResponse.json(
-        { success: false, error: 'Numbers are not allowed in email. Use only lowercase letters.' },
-        { status: 400 }
-      );
-    }
-
-    // Check for disallowed characters
-    if (/[^a-z@.]/.test(rawEmail)) {
+    // Check for disallowed characters (only lowercase, digits, @, ., _, - allowed)
+    if (/[^a-z0-9@._-]/.test(rawEmail)) {
       return NextResponse.json(
         { success: false, error: 'Special characters and spaces are not allowed in email.' },
         { status: 400 }
@@ -69,11 +61,11 @@ export async function POST(request) {
       );
     }
 
-    // Prefix validation
+    // Prefix validation (letters and numbers allowed)
     const prefix = rawEmail.slice(0, -10);
-    if (!prefix || !/^[a-z]+$/.test(prefix)) {
+    if (!prefix || !/^[a-z0-9._-]+$/.test(prefix)) {
       return NextResponse.json(
-        { success: false, error: 'Email prefix must contain only lowercase letters (no dots, numbers, or symbols).' },
+        { success: false, error: 'Email prefix must contain only lowercase letters and numbers.' },
         { status: 400 }
       );
     }

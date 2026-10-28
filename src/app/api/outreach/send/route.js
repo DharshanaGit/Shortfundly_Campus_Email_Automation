@@ -57,6 +57,9 @@ export async function POST(request) {
     }
 
     const data = parse.data;
+    if (!data.campaign_id) {
+      data.campaign_id = 'SINGLE_DISPATCH';
+    }
 
     // 4. Atomic duplicate prevention check
     const duplicateCheck = checkDuplicateOutreach(data.email);

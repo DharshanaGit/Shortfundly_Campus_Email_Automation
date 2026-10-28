@@ -17,6 +17,12 @@ const ALLOWED_MIME_TYPES = [
   'text/csv',
   'application/csv',
   'text/plain',
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
 ];
 
 const ALLOWED_EXTENSIONS = [
@@ -28,6 +34,12 @@ const ALLOWED_EXTENSIONS = [
   '.ppt',
   '.pptx',
   '.csv',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.webp',
+  '.svg',
 ];
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per file

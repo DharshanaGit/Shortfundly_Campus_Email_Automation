@@ -43,7 +43,7 @@ export default function Sidebar({ activeTab, setActiveTab, session, onLogout }) 
     },
     {
       id: 'campaigns',
-      label: 'Campaign Reports',
+      label: 'Mails tracker',
       icon: <BarChartIcon size={17} />,
     },
     {

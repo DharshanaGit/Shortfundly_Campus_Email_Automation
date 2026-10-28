@@ -12,7 +12,10 @@ import {
   AlertCircleIcon,
   RefreshCwIcon,
   BuildingIcon,
-  MailIcon
+  MailIcon,
+  ImageIcon,
+  PlusIcon,
+  TrashIcon
 } from './Icons.jsx';
 import { renderTemplate, formatBodyToHtml, htmlToJinjaText } from '@/lib/templates.js';
 
@@ -26,6 +29,13 @@ const JINJA_VARIABLES = [
   { tag: '{{country}}', label: 'Country' },
   { tag: '{{sender_name}}', label: 'Sender' },
 ];
+
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
 
 export default function EmailReviewModal({
   isOpen,
@@ -42,7 +52,12 @@ export default function EmailReviewModal({
   const [isSending, setIsSending] = useState(false);
   const [sendResult, setSendResult] = useState(null);
   const [overrideReason, setOverrideReason] = useState('');
+  const [attachments, setAttachments] = useState([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [attachmentError, setAttachmentError] = useState('');
+
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const getInterpolationVars = () => {
     if (!initialData) return {};
@@ -90,6 +105,8 @@ export default function EmailReviewModal({
 
     setSendResult(null);
     setOverrideReason('');
+    setAttachments([]);
+    setAttachmentError('');
     setActiveTab('preview');
   }, [initialData, templates, user]);
 
@@ -116,6 +133,55 @@ export default function EmailReviewModal({
     }, 10);
   };
 
+  // Upload image or document attachment
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachmentError('');
+
+    // Check size limit (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setAttachmentError(`File size exceeds 10 MB limit (${(file.size / (1024 * 1024)).toFixed(2)} MB).`);
+      e.target.value = '';
+      return;
+    }
+
+    // Limit to 5 attachments max
+    if (attachments.length >= 5) {
+      setAttachmentError('Maximum of 5 attachments allowed per email dispatch.');
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      setUploadingAttachment(true);
+      const fd = new FormData();
+      fd.append('file', file);
+
+      const res = await fetch('/api/outreach/upload-attachment', {
+        method: 'POST',
+        body: fd,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setAttachmentError(data.error || 'Failed to upload attachment.');
+      } else if (data.success && data.file) {
+        setAttachments((prev) => [...prev, data.file]);
+        setAttachmentError('');
+      }
+    } catch {
+      setAttachmentError('Network failure during file upload.');
+    } finally {
+      setUploadingAttachment(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAttachment = (indexToRemove) => {
+    setAttachments((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
   const handleSend = async () => {
     setIsSending(true);
     setSendResult(null);
@@ -136,6 +202,8 @@ export default function EmailReviewModal({
           designation: initialData.designation || null,
           subject: finalSubject,
           body_html: finalBodyHtml,
+          campaign_id: 'SINGLE_DISPATCH',
+          attachments: attachments,
           override_duplicate: hasDuplicate,
           override_reason: hasDuplicate ? overrideReason || 'Manual user override after review' : null,
         }),
@@ -148,6 +216,7 @@ export default function EmailReviewModal({
           type: 'SUCCESS',
           message: `Campus proposal successfully dispatched to ${initialData.email}!`,
           messageId: data.messageId,
+          outreachId: data.outreachId,
           status: data.status || '250 OK',
         });
         if (onSuccess) onSuccess();
@@ -228,16 +297,23 @@ export default function EmailReviewModal({
 
         {/* Modal Body */}
         <div className={styles.modalBody}>
-          {/* Success State Banner (Clean Toast Style outside Email Box) */}
+          {/* Success State Banner: Explicit Notification */}
           {sendResult && sendResult.type === 'SUCCESS' && (
             <div className={styles.successNotificationCard}>
               <div className={styles.successIconBox}>
-                <CheckCircleIcon size={22} />
+                <CheckCircleIcon size={24} />
               </div>
               <div className={styles.successContent}>
-                <div className={styles.successTitle}>Email Successfully Dispatched</div>
+                <div className={styles.successTitle}>
+                  ✓ Mail Sent Successfully!
+                </div>
                 <div className={styles.successMessage}>
-                  Delivered to <strong>{initialData.email}</strong> for <strong>{initialData.college_name}</strong>.
+                  Dispatched and validated by Google SMTP (Status: <strong>{sendResult.status}</strong>) to{' '}
+                  <strong>{initialData.email}</strong> for <strong>{initialData.college_name}</strong>.
+                </div>
+                <div style={{ marginTop: '6px', fontSize: '11.5px', color: '#166534', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <span>📊 <strong>Tracked in:</strong> Mails tracker &bull; Single Mail Dispatcher</span>
+                  {sendResult.messageId && <span><strong>Message ID:</strong> {sendResult.messageId.substring(0, 24)}...</span>}
                 </div>
               </div>
               <button type="button" className={styles.successDoneBtn} onClick={onClose}>
@@ -246,11 +322,29 @@ export default function EmailReviewModal({
             </div>
           )}
 
-          {/* Failure Banner */}
+          {/* Failure Notification Banner */}
           {sendResult && sendResult.type === 'ERROR' && (
             <div className={styles.errorNotificationCard}>
-              <AlertCircleIcon size={20} />
-              <div className={styles.errorMessage}>{sendResult.message}</div>
+              <div style={{ color: '#dc2626', flexShrink: 0 }}>
+                <AlertCircleIcon size={22} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 750, color: '#991b1b', marginBottom: '2px' }}>
+                  ⚠️ Mail Not Sent
+                </div>
+                <div className={styles.errorMessage}>{sendResult.message}</div>
+                <div style={{ marginTop: '4px', fontSize: '11.5px', color: '#b91c1c' }}>
+                  This attempt has been logged in Mails tracker as <strong>Failed</strong>. You can retry with Google SMTP.
+                </div>
+              </div>
+              <button
+                type="button"
+                className={styles.retryBtn}
+                onClick={handleSend}
+                disabled={isSending}
+              >
+                {isSending ? 'Retrying...' : 'Retry Dispatch'}
+              </button>
             </div>
           )}
 
@@ -267,7 +361,7 @@ export default function EmailReviewModal({
             </div>
           ) : (
             <div className={styles.editSection}>
-              {/* Email Subject Line with comfortable spacing */}
+              {/* Email Subject Line */}
               <div className={styles.fieldGroup}>
                 <div className={styles.fieldLabelRow}>
                   <label className={styles.label}>Email Subject Line</label>
@@ -318,6 +412,84 @@ export default function EmailReviewModal({
               </div>
             </div>
           )}
+
+          {/* Provision to add images & files */}
+          <div className={styles.attachmentPanel}>
+            <div className={styles.attachmentHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '15px' }}>📎</span>
+                <span style={{ fontWeight: 700, fontSize: '13px', color: '#1e293b' }}>
+                  Attachments &amp; Media ({attachments.length}/5)
+                </span>
+                <span style={{ fontSize: '11px', color: '#64748b' }}>
+                  Attach PDFs, Docs, Presentations, or Images (Max 10 MB each)
+                </span>
+              </div>
+
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  style={{ display: 'none' }}
+                  onChange={handleFileUpload}
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.png,.jpg,.jpeg,.gif,.webp"
+                />
+                <button
+                  type="button"
+                  className={styles.addAttachmentBtn}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAttachment || attachments.length >= 5}
+                >
+                  {uploadingAttachment ? (
+                    <>
+                      <RefreshCwIcon size={13} className="spin" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <PlusIcon size={13} />
+                      <span>Add File / Image</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {attachmentError && (
+              <div className={styles.attachmentErrorAlert}>
+                <AlertCircleIcon size={13} />
+                <span>{attachmentError}</span>
+              </div>
+            )}
+
+            {attachments.length > 0 && (
+              <div className={styles.attachmentPillsRow}>
+                {attachments.map((att, idx) => (
+                  <div key={idx} className={styles.attachmentPill}>
+                    <span style={{ fontSize: '13px' }}>
+                      {att.mimeType?.startsWith('image/') ? '🖼️' : '📄'}
+                    </span>
+                    <span className={styles.attachmentFileName} title={att.filename}>
+                      {att.filename}
+                    </span>
+                    {att.size && (
+                      <span className={styles.attachmentFileSize}>
+                        ({formatFileSize(att.size)})
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      className={styles.removeAttachmentBtn}
+                      onClick={() => handleRemoveAttachment(idx)}
+                      title="Remove attachment"
+                    >
+                      <CloseIcon size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Duplicate Override Panel */}
           {isDuplicate && (

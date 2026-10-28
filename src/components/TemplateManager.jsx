@@ -109,9 +109,11 @@ export default function TemplateManager({ session, onTemplatesUpdated }) {
     setIsEditorOpen(true);
   };
 
-  // Image insertion callback (inserts clean Jinja banner tag)
-  const handleInsertImage = () => {
-    insertAtCursor('\n[Banner: Campus Outreach Initiative]\n');
+  // Image insertion callback (inserts clean image tag or responsive banner)
+  const handleInsertImage = (imgHtml) => {
+    if (typeof imgHtml === 'string' && imgHtml.trim()) {
+      insertAtCursor('\n' + imgHtml.trim() + '\n');
+    }
     setIsImageModalOpen(false);
   };
 
@@ -589,6 +591,15 @@ export default function TemplateManager({ session, onTemplatesUpdated }) {
                       onClick={() => insertAtCursor('\n• Key deliverable 1\n• Key deliverable 2\n')}
                     >
                       • Bullet List
+                    </button>
+
+                    <button
+                      type="button"
+                      className={styles.formatBtn}
+                      onClick={() => setIsImageModalOpen(true)}
+                      title="Insert image from library, upload new image, or provide image URL"
+                    >
+                      🖼️ Add Image
                     </button>
                   </div>
 

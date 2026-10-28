@@ -4,10 +4,11 @@ import { applySecurityHeaders } from '@/lib/security.js';
 import { randomUUID } from 'crypto';
 import { spawn } from 'child_process';
 import path from 'path';
+import pg from 'pg';
+
+const { Pool } = pg;
 
 function getPgPool() {
-  const pg = require('pg');
-  const { Pool } = pg.default || pg;
   return new Pool({
     host: process.env.POSTGRES_HOST || '127.0.0.1',
     port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
@@ -241,7 +242,21 @@ export async function POST(request) {
   try {
     pool = getPgPool();
 
-    // Safeguard: Check if any job is currently RUNNING or QUEUED
+    // Auto-resolve stale crawl jobs (> 15 mins) to prevent permanent UI lockouts
+    try {
+      await pool.query(`
+        UPDATE crawl_jobs 
+        SET status = 'FAILED', 
+            error_log = 'Execution timed out (auto-resolved by monitoring engine)', 
+            finished_at = NOW() 
+        WHERE status IN ('RUNNING', 'QUEUED') 
+          AND started_at < NOW() - INTERVAL '15 minutes';
+      `);
+    } catch (cleanupErr) {
+      console.warn('[API Monitor] Stale cleanup note:', cleanupErr?.message);
+    }
+
+    // Safeguard: Check if any job is actively RUNNING or QUEUED
     const activeCheck = await pool.query(`
       SELECT id, job_type, started_at
       FROM crawl_jobs
@@ -279,15 +294,16 @@ export async function POST(request) {
 
     // Launch pipeline execution asynchronously
     const pythonScript = path.join(process.cwd(), 'automation_engine', 'run_pipeline.py');
-    const pythonArgs = [];
+    const pythonExecutable = process.platform === 'win32' ? 'python' : 'python3';
+    const pythonArgs = [pythonScript, '--job-id', jobId, '--limit', String(limit)];
     if (scope === 'STATE' && state) {
       pythonArgs.push('--state', state);
     }
-    pythonArgs.push('--limit', String(limit));
 
-    const pyProc = spawn('python', [pythonScript, ...pythonArgs], {
+    const pyProc = spawn(pythonExecutable, pythonArgs, {
       cwd: process.cwd(),
       detached: true,
+      shell: true,
       stdio: 'ignore',
     });
     pyProc.unref();

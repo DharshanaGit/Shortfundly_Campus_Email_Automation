@@ -18,14 +18,6 @@ import {
   UserIcon,
 } from '@/components/Icons.jsx';
 
-// Accepted admin passwords for instant real-time verification while typing
-const ACCEPTED_PASSWORDS = [
-  'Shortfundly@2026',
-  'ShortfundlyAdmin#2026',
-  'ShortfundlyAdmin',
-  'Shortfundly@Pass2026!',
-];
-
 export default function LoginPage() {
   const router = useRouter();
 
@@ -99,7 +91,7 @@ export default function LoginPage() {
     }
   };
 
-  // Core email validation logic
+  // Core email validation logic: Numbers ALLOWED, NO Capital letters allowed, ends with @gmail.com
   const validateEmail = (val) => {
     if (!val) {
       setEmailError('');
@@ -107,28 +99,21 @@ export default function LoginPage() {
       return false;
     }
 
-    // 1. Error on Capital letters
+    // 1. Error on Capital letters (strictly forbidden)
     if (/[A-Z]/.test(val)) {
-      setEmailError('Capital letters are not allowed in email. Use only lowercase letters.');
+      setEmailError('Capital letters are not allowed in email. Use only lowercase letters and numbers.');
       setIsEmailValid(false);
       return false;
     }
 
-    // 2. Error on Numbers
-    if (/[0-9]/.test(val)) {
-      setEmailError('Numbers are not allowed in email. Use only lowercase letters.');
-      setIsEmailValid(false);
-      return false;
-    }
-
-    // 3. Error on disallowed characters (spaces or special symbols other than @ and .)
-    if (/[^a-z@.]/.test(val)) {
+    // 2. Error on disallowed characters (spaces or special symbols other than @, ., _, -)
+    if (/[^a-z0-9@._-]/.test(val)) {
       setEmailError('Special characters and spaces are not allowed in email.');
       setIsEmailValid(false);
       return false;
     }
 
-    // 4. Must contain only a single @
+    // 3. Must contain only a single @
     const atCount = (val.match(/@/g) || []).length;
     if (atCount > 1) {
       setEmailError('Email cannot contain multiple "@" symbols.');
@@ -136,23 +121,23 @@ export default function LoginPage() {
       return false;
     }
 
-    // 5. Must end with @gmail.com
+    // 4. Must end with @gmail.com
     if (!val.endsWith('@gmail.com')) {
       setEmailError('Email must end with @gmail.com');
       setIsEmailValid(false);
       return false;
     }
 
-    // 6. Username prefix before @gmail.com must be non-empty and lowercase letters only
-    const prefix = val.slice(0, -10); // length of '@gmail.com' is 10
+    // 5. Username prefix before @gmail.com (lowercase letters and numbers allowed)
+    const prefix = val.slice(0, -10);
     if (!prefix || prefix.length === 0) {
       setEmailError('Please enter your email prefix before @gmail.com');
       setIsEmailValid(false);
       return false;
     }
 
-    if (!/^[a-z]+$/.test(prefix)) {
-      setEmailError('Email prefix must contain only lowercase letters (no dots or symbols).');
+    if (!/^[a-z0-9._-]+$/.test(prefix)) {
+      setEmailError('Email prefix must contain only lowercase letters and numbers.');
       setIsEmailValid(false);
       return false;
     }
@@ -178,7 +163,7 @@ export default function LoginPage() {
         if (passwordInputRef.current && !password) {
           passwordInputRef.current.focus();
         }
-      }, 50);
+      }, 60);
     }
   };
 
@@ -196,31 +181,21 @@ export default function LoginPage() {
     }
 
     if (mode === 'login') {
-      // Real-time check if typed password matches accepted system password or local registered user password
-      let registeredPwd = null;
-      if (typeof window !== 'undefined' && email) {
-        try {
-          registeredPwd = localStorage.getItem(`sf_user_pwd_${email.toLowerCase().trim()}`);
-        } catch {}
-      }
-
-      const matches = ACCEPTED_PASSWORDS.includes(val) || (registeredPwd && val === registeredPwd);
-      if (!matches) {
-        setPasswordError('Wrong password. Please enter the correct password.');
+      // Login mode: Validate length (min 6 chars). Full authentication verified against database on submit
+      if (val.length < 6) {
+        setPasswordError('Password must be at least 6 characters.');
         setIsPasswordValid(false);
-        return;
+      } else {
+        setPasswordError('');
+        setIsPasswordValid(true);
+
+        // Auto-advance focus to Captcha verification field
+        setTimeout(() => {
+          if (captchaInputRef.current && !captchaAnswer) {
+            captchaInputRef.current.focus();
+          }
+        }, 60);
       }
-
-      // Correct password verified for login!
-      setPasswordError('');
-      setIsPasswordValid(true);
-
-      // Auto-advance focus to Captcha verification field
-      setTimeout(() => {
-        if (captchaInputRef.current && !captchaAnswer) {
-          captchaInputRef.current.focus();
-        }
-      }, 50);
     } else {
       // Mode === 'register': Enforce password strength (minimum 8 characters)
       if (val.length < 8) {
@@ -248,7 +223,7 @@ export default function LoginPage() {
           if (confirmPasswordInputRef.current && !confirmPassword) {
             confirmPasswordInputRef.current.focus();
           }
-        }, 50);
+        }, 60);
       }
     }
   };
@@ -281,7 +256,7 @@ export default function LoginPage() {
       if (captchaInputRef.current && !captchaAnswer) {
         captchaInputRef.current.focus();
       }
-    }, 50);
+    }, 60);
   };
 
   const handleSubmit = async (e) => {
@@ -290,13 +265,13 @@ export default function LoginPage() {
     setSuccessMessage(null);
 
     if (!isEmailValid) {
-      setGeneralError('Please enter a valid email address ending with @gmail.com (no capital letters or numbers).');
+      setGeneralError('Please enter a valid email address ending with @gmail.com (no capital letters).');
       return;
     }
 
     if (!isPasswordValid) {
       if (mode === 'login') {
-        setGeneralError('Please enter the correct password.');
+        setGeneralError('Please enter your password.');
       } else {
         setGeneralError('Password must be at least 8 characters long.');
       }
@@ -363,12 +338,12 @@ export default function LoginPage() {
         const data = await res.json();
 
         if (res.ok && data.success) {
-          // Cache password locally so sign in also recognizes this user's credentials
+          // Cache password locally for convenient access
           try {
             localStorage.setItem(`sf_user_pwd_${email.trim().toLowerCase()}`, password.trim());
           } catch {}
 
-          setSuccessMessage('Account created successfully! Redirecting to dashboard...');
+          setSuccessMessage('Account created successfully! Logging you into dashboard...');
           setTimeout(() => {
             router.push('/dashboard');
             router.refresh();
@@ -399,15 +374,16 @@ export default function LoginPage() {
           <Link href="/" className={styles.returnLink}>
             <span>&larr;</span> Back to Home
           </Link>
-          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>
-            {mode === 'login' ? 'Secure Login' : 'New Registration'}
+          <span className={styles.securityBadge}>
+            <ShieldCheckIcon size={12} />
+            <span>{mode === 'login' ? 'Verified Gateway' : 'New Registration'}</span>
           </span>
         </div>
 
         {/* Brand Area */}
         <div className={styles.brandArea}>
           <div className={styles.logoIcon}>
-            <CampaignPulseLogoSymbol size={44} />
+            <CampaignPulseLogoSymbol size={46} />
           </div>
           <div className={styles.titleArea}>
             <h1 className={styles.brandTitle}>
@@ -415,8 +391,8 @@ export default function LoginPage() {
             </h1>
             <p className={styles.brandSubtitle}>
               {mode === 'login'
-                ? 'Sign in to manage your campus email campaigns'
-                : 'Create an account to access campus outreach'}
+                ? 'Sign in to access collegiate outreach intelligence'
+                : 'Create an account to manage campus outreach campaigns'}
             </p>
           </div>
         </div>
@@ -482,7 +458,8 @@ export default function LoginPage() {
               >
                 {isEmailValid ? '✓' : '1'}
               </span>
-              Email Address
+              <span>Email Address</span>
+              <span className={styles.fieldRuleHint}>Lowercase &amp; numbers allowed &bull; @gmail.com</span>
             </label>
             <div className={styles.inputShell}>
               <span className={styles.inputPrefix}>
@@ -495,7 +472,7 @@ export default function LoginPage() {
                 className={`${styles.textInput} ${
                   isEmailValid ? styles.inputValid : emailError ? styles.inputInvalid : ''
                 }`}
-                placeholder="e.g. campus@gmail.com"
+                placeholder="e.g. dachudharshana17@gmail.com"
                 value={email}
                 onChange={handleEmailChange}
                 onKeyDown={checkCapsLock}
@@ -536,7 +513,7 @@ export default function LoginPage() {
                 >
                   {isPasswordValid ? '✓' : '2'}
                 </span>
-                {mode === 'login' ? 'Password' : 'Create Password'}
+                <span>{mode === 'login' ? 'Password' : 'Create Password'}</span>
               </label>
               {isEmailValid && (
                 <button
@@ -597,7 +574,7 @@ export default function LoginPage() {
             {!isEmailValid && (
               <div className={styles.fieldLockedNotice}>
                 <LockIcon size={12} />
-                <span>Fill out a valid email to unlock password field</span>
+                <span>Fill out valid email to unlock password field</span>
               </div>
             )}
             {isEmailValid && passwordError && (
@@ -611,7 +588,7 @@ export default function LoginPage() {
                 <CheckCircleIcon size={13} />
                 <span>
                   {mode === 'login'
-                    ? 'Password verified'
+                    ? 'Password format valid'
                     : 'Password meets requirement (8+ characters)'}
                 </span>
               </div>
@@ -634,7 +611,7 @@ export default function LoginPage() {
                   >
                     {isConfirmPasswordValid ? '✓' : '3'}
                   </span>
-                  Confirm Password
+                  <span>Confirm Password</span>
                 </label>
                 {isPasswordValid && (
                   <button
@@ -665,7 +642,7 @@ export default function LoginPage() {
                       : ''
                   }`}
                   placeholder={
-                    isPasswordValid ? 'Re-enter your password' : 'Enter valid password first'
+                    isPasswordValid ? 'Re-enter identical password' : 'Enter valid password first'
                   }
                   value={confirmPassword}
                   onChange={handleConfirmPasswordChange}
@@ -703,7 +680,7 @@ export default function LoginPage() {
               {isConfirmPasswordValid && (
                 <div className={styles.fieldSuccess}>
                   <CheckCircleIcon size={13} />
-                  <span>Passwords match</span>
+                  <span>Passwords match perfectly</span>
                 </div>
               )}
             </div>
@@ -733,7 +710,7 @@ export default function LoginPage() {
                     >
                       {isCompleted ? '✓' : stepNum}
                     </span>
-                    Security Verification
+                    <span>Security Verification</span>
                   </label>
                   {isUnlocked && (
                     <span className={styles.captchaMeta}>Click image to refresh</span>
@@ -796,7 +773,7 @@ export default function LoginPage() {
                     <LockIcon size={12} />
                     <span>
                       {mode === 'login'
-                        ? 'Enter correct password to unlock verification'
+                        ? 'Enter password to unlock verification'
                         : 'Ensure passwords match to unlock verification'}
                     </span>
                   </div>
@@ -846,7 +823,7 @@ export default function LoginPage() {
         {/* Security Footnote */}
         <div className={styles.cardFooter}>
           <ShieldCheckIcon size={14} className={styles.noteIcon} />
-          <span>Encrypted session with real-time credential verification</span>
+          <span>Encrypted cryptographic session with database credential verification</span>
         </div>
       </div>
     </div>
