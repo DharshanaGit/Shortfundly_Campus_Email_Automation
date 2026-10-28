@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getGeoColleges } from '@/lib/db.js';
 import { applySecurityHeaders } from '@/lib/security.js';
 import pg from 'pg';
+import masterRegistry from '@/data/pan_india_master_registry.json';
 
 const { Pool } = pg;
 
@@ -14,9 +15,52 @@ const pool = new Pool({
   password: process.env.POSTGRES_PASSWORD || 'MySecurePass123!',
   max: 10,
   idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 3000,
+  connectionTimeoutMillis: 2000,
   options: '-c search_path=college_data,public',
 });
+
+function queryMasterRegistry({ states = [], search = '', category = '', district = '', page = 1, limit = 3000 }) {
+  let list = masterRegistry.colleges || [];
+
+  if (states.length > 0 && !states.includes('All India')) {
+    const lowerStates = states.map((s) => s.toLowerCase().trim());
+    list = list.filter((c) => lowerStates.some((st) => (c.state_or_region || '').toLowerCase().includes(st)));
+  }
+
+  if (search.trim()) {
+    const q = search.toLowerCase().trim();
+    list = list.filter(
+      (c) =>
+        (c.college_name && c.college_name.toLowerCase().includes(q)) ||
+        (c.district && c.district.toLowerCase().includes(q)) ||
+        (c.website_url && c.website_url.toLowerCase().includes(q)) ||
+        (c.contacts && c.contacts.some((ct) => ct.email.toLowerCase().includes(q) || ct.contact_person.toLowerCase().includes(q)))
+    );
+  }
+
+  if (category && category !== 'all') {
+    const cat = category.toLowerCase();
+    list = list.filter((c) => (c.category || '').toLowerCase().includes(cat));
+  }
+
+  if (district && district !== 'all') {
+    const d = district.toLowerCase();
+    list = list.filter((c) => (c.district || '').toLowerCase().includes(d));
+  }
+
+  const total = list.length;
+  const offset = (page - 1) * limit;
+  const sliced = list.slice(offset, offset + limit);
+
+  return {
+    colleges: sliced,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    source: 'Pan-India Master Registry',
+  };
+}
 
 async function queryPostgresColleges({ states = [], search = '', category = '', district = '', page = 1, limit = 50 }) {
   try {
@@ -144,9 +188,9 @@ export async function GET(request) {
     // 1. Try PostgreSQL First
     let result = await queryPostgresColleges({ states, search, category, district, page, limit });
 
-    // 2. Fallback to SQLite if PostgreSQL has no records for this query yet
-    if (!result || result.total === 0) {
-      result = getGeoColleges({ countries, states, search, category, district, page, limit });
+    // 2. Fallback to Pan-India Master Registry if PostgreSQL is unreachable or has no records
+    if (!result || !result.colleges || result.colleges.length === 0) {
+      result = queryMasterRegistry({ states, search, category, district, page, limit });
     }
 
     const response = NextResponse.json({
@@ -179,9 +223,9 @@ export async function POST(request) {
     // 1. Try PostgreSQL First
     let result = await queryPostgresColleges({ states, search, category, district, page, limit });
 
-    // 2. Fallback to SQLite if PostgreSQL has no records for this query yet
-    if (!result || result.total === 0) {
-      result = getGeoColleges({ countries, states, search, category, district, page, limit });
+    // 2. Fallback to Pan-India Master Registry if PostgreSQL is unreachable or has no records
+    if (!result || !result.colleges || result.colleges.length === 0) {
+      result = queryMasterRegistry({ states, search, category, district, page, limit });
     }
 
     if (!result) {

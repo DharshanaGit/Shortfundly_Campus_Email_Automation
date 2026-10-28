@@ -118,9 +118,11 @@ export function htmlToJinjaText(html) {
   if (!html) return '';
   let text = String(html);
 
-  // Strip images / banners cleanly
-  text = text.replace(/<div[^>]*>\s*<img[^>]*>\s*<\/div>/gi, '');
-  text = text.replace(/<img[^>]*>/gi, '');
+  // Convert banner images cleanly into editable Jinja banner tags: [Banner: title]
+  text = text.replace(/<div[^>]*>\s*<img[^>]*alt="([^"]*)"[^>]*>\s*<\/div>/gi, '\n\n[Banner: $1]\n\n');
+  text = text.replace(/<img[^>]*alt="([^"]*)"[^>]*>/gi, '\n\n[Banner: $1]\n\n');
+  text = text.replace(/<div[^>]*>\s*<img[^>]*>\s*<\/div>/gi, '\n\n[Banner: Campus Outreach Initiative]\n\n');
+  text = text.replace(/<img[^>]*>/gi, '\n\n[Banner: Campus Outreach Initiative]\n\n');
 
   // Convert list items to bullet lines
   text = text.replace(/<li[^>]*>(.*?)<\/li>/gis, (m, c) => `• ${c.trim()}\n`);
@@ -172,17 +174,23 @@ export function formatBodyToHtml(textOrHtml) {
   processed = processed.replace(/\/uploads\/email-images\/sf_creator_pass_banner\.svg/g, SF_CREATOR_PASS_BANNER);
   processed = processed.replace(/\/uploads\/email-images\/sf_campus_festival_poster\.svg/g, SF_CAMPUS_POSTER);
 
-  // If text contains a banner placeholder, insert the verified banner
-  processed = processed.replace(
-    /\[Banner(?::\s*[^\]]+)?\]/gi,
-    `<div style="margin: 18px 0; text-align: center;"><img src="${SF_CREATOR_PASS_BANNER}" alt="Campus Outreach Initiative" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" /></div>`
-  );
+  // Check if string is already semantic HTML (contains <p> or <ul>)
+  const isAlreadyHtml = /<p\b[^>]*>/i.test(processed) || /<ul\b[^>]*>/i.test(processed);
 
-  // Check if string already contains structural HTML tags (<p>, <div>, <table>, <ul>, <ol>, <h1-6>, <blockquote>, <img>)
-  const hasStructuralTags = /<(p|div|table|ul|ol|h[1-6]|blockquote|img)\b[^>]*>/i.test(processed);
-
-  if (hasStructuralTags) {
-    return processed;
+  if (isAlreadyHtml) {
+    // Replace any banner placeholder inside existing HTML
+    return processed.replace(
+      /\[Banner(?::\s*([^\]]*))?\]/gi,
+      (m, alt) => {
+        const bannerAlt = (alt || 'Campus Outreach Initiative').trim();
+        const isPoster =
+          bannerAlt.toLowerCase().includes('workshop') ||
+          bannerAlt.toLowerCase().includes('poster') ||
+          bannerAlt.toLowerCase().includes('festival');
+        const bannerSrc = isPoster ? SF_CAMPUS_POSTER : SF_CREATOR_PASS_BANNER;
+        return `<div style="margin: 18px 0; text-align: center;"><img src="${bannerSrc}" alt="${bannerAlt}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" /></div>`;
+      }
+    );
   }
 
   // Convert markdown links: [text](url) -> <a href="url">text</a>
@@ -197,16 +205,28 @@ export function formatBodyToHtml(textOrHtml) {
     '$1<a href="$2" target="_blank" style="color: #0d9488; text-decoration: underline;">$2</a>'
   );
 
-  // Convert markdown bold: **text** or *text* -> <strong>text</strong>
+  // Convert markdown bold: **text** -> <strong>text</strong>
   processed = processed.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
   processed = processed.replace(/(^|[\s(])\*([^*\n]+)\*([\s.,!?)]|$)/gm, '$1<strong>$2</strong>$3');
 
-  // Convert plain text with double newlines into semantic paragraphs, handling bullet lines
+  // Convert plain text with double newlines into semantic paragraphs, handling bullet lines and banners
   const paragraphs = processed.split(/\r?\n\s*\r?\n/);
   return paragraphs
     .map((para) => {
       const trimmed = para.trim();
       if (!trimmed) return '';
+
+      // Check if this paragraph is a banner placeholder: [Banner: ...]
+      const bannerMatch = trimmed.match(/^\[Banner(?::\s*([^\]]*))?\]$/i);
+      if (bannerMatch) {
+        const bannerAlt = (bannerMatch[1] || 'Campus Outreach Initiative').trim();
+        const isPoster =
+          bannerAlt.toLowerCase().includes('workshop') ||
+          bannerAlt.toLowerCase().includes('poster') ||
+          bannerAlt.toLowerCase().includes('festival');
+        const bannerSrc = isPoster ? SF_CAMPUS_POSTER : SF_CREATOR_PASS_BANNER;
+        return `<div style="margin: 18px 0; text-align: center;"><img src="${bannerSrc}" alt="${bannerAlt}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" /></div>`;
+      }
 
       // Check if paragraph consists of bullet list items
       const lines = trimmed.split(/\r?\n/);
@@ -222,7 +242,21 @@ export function formatBodyToHtml(textOrHtml) {
         return `<ul style="padding-left: 20px; line-height: 1.6; margin: 12px 0; color: #111827;">\n${lis}\n</ul>`;
       }
 
-      const withLineBreaks = trimmed.replace(/\r?\n/g, '<br />\n');
+      // Replace any inline banner tags within paragraph
+      let withBanners = trimmed.replace(
+        /\[Banner(?::\s*([^\]]*))?\]/gi,
+        (m, alt) => {
+          const bannerAlt = (alt || 'Campus Outreach Initiative').trim();
+          const isPoster =
+            bannerAlt.toLowerCase().includes('workshop') ||
+            bannerAlt.toLowerCase().includes('poster') ||
+            bannerAlt.toLowerCase().includes('festival');
+          const bannerSrc = isPoster ? SF_CAMPUS_POSTER : SF_CREATOR_PASS_BANNER;
+          return `<div style="margin: 18px 0; text-align: center;"><img src="${bannerSrc}" alt="${bannerAlt}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" /></div>`;
+        }
+      );
+
+      const withLineBreaks = withBanners.replace(/\r?\n/g, '<br />\n');
       return `<p style="margin: 0 0 16px 0; line-height: 1.65; color: #111827;">${withLineBreaks}</p>`;
     })
     .filter(Boolean)

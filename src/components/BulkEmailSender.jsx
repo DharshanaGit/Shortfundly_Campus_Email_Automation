@@ -18,7 +18,7 @@ import { renderTemplate, formatBodyToHtml, htmlToJinjaText, DEFAULT_TEMPLATES } 
 import * as XLSX from 'xlsx';
 
 const DEFAULT_COUNTRIES = [
-  { code: 'IN', name: 'India', college_count: 1832 },
+  { code: 'IN', name: 'India', college_count: 2323 },
   { code: 'US', name: 'United States', college_count: 0 },
   { code: 'GB', name: 'United Kingdom', college_count: 0 },
   { code: 'CA', name: 'Canada', college_count: 0 },
@@ -31,42 +31,41 @@ const DEFAULT_COUNTRIES = [
 ];
 
 const DEFAULT_INDIA_REGIONS = [
-  { id: 'IN-AP', name: 'Andhra Pradesh', type: 'state', college_count: 1832, contact_count: 1663 },
-  { id: 'IN-TG', name: 'Telangana', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-TN', name: 'Tamil Nadu', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-KA', name: 'Karnataka', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-KL', name: 'Kerala', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-MH', name: 'Maharashtra', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-DL', name: 'Delhi', type: 'union_territory', college_count: 0, contact_count: 0 },
-  { id: 'IN-GJ', name: 'Gujarat', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-UP', name: 'Uttar Pradesh', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-WB', name: 'West Bengal', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-RJ', name: 'Rajasthan', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-MP', name: 'Madhya Pradesh', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-HR', name: 'Haryana', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-PB', name: 'Punjab', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-OR', name: 'Odisha', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-BR', name: 'Bihar', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-AS', name: 'Assam', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-JH', name: 'Jharkhand', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-UT', name: 'Uttarakhand', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-HP', name: 'Himachal Pradesh', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-CT', name: 'Chhattisgarh', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-GA', name: 'Goa', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-JK', name: 'Jammu and Kashmir', type: 'union_territory', college_count: 0, contact_count: 0 },
-  { id: 'IN-CH', name: 'Chandigarh', type: 'union_territory', college_count: 0, contact_count: 0 },
-  { id: 'IN-PY', name: 'Puducherry', type: 'union_territory', college_count: 0, contact_count: 0 },
-  { id: 'IN-TR', name: 'Tripura', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-ML', name: 'Meghalaya', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-MN', name: 'Manipur', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-NL', name: 'Nagaland', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-MZ', name: 'Mizoram', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-SK', name: 'Sikkim', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-AR', name: 'Arunachal Pradesh', type: 'state', college_count: 0, contact_count: 0 },
-  { id: 'IN-LA', name: 'Ladakh', type: 'union_territory', college_count: 0, contact_count: 0 },
-  { id: 'IN-AN', name: 'Andaman and Nicobar Islands', type: 'union_territory', college_count: 0, contact_count: 0 },
-  { id: 'IN-DN', name: 'Dadra and Nagar Haveli and Daman and Diu', type: 'union_territory', college_count: 0, contact_count: 0 },
-  { id: 'IN-LD', name: 'Lakshadweep', type: 'union_territory', college_count: 0, contact_count: 0 },
+  { id: 'IN-AP', name: 'Andhra Pradesh', type: 'state', college_count: 1466, contact_count: 2192 },
+  { id: 'IN-TN', name: 'Tamil Nadu', type: 'state', college_count: 232, contact_count: 545 },
+  { id: 'IN-DL', name: 'Delhi', type: 'union_territory', college_count: 150, contact_count: 475 },
+  { id: 'IN-RJ', name: 'Rajasthan', type: 'state', college_count: 51, contact_count: 62 },
+  { id: 'IN-KA', name: 'Karnataka', type: 'state', college_count: 40, contact_count: 48 },
+  { id: 'IN-GJ', name: 'Gujarat', type: 'state', college_count: 39, contact_count: 43 },
+  { id: 'IN-UP', name: 'Uttar Pradesh', type: 'state', college_count: 36, contact_count: 40 },
+  { id: 'IN-MP', name: 'Madhya Pradesh', type: 'state', college_count: 32, contact_count: 36 },
+  { id: 'IN-MH', name: 'Maharashtra', type: 'state', college_count: 25, contact_count: 35 },
+  { id: 'IN-AS', name: 'Assam', type: 'state', college_count: 14, contact_count: 33 },
+  { id: 'IN-HR', name: 'Haryana', type: 'state', college_count: 23, contact_count: 27 },
+  { id: 'IN-BR', name: 'Bihar', type: 'state', college_count: 13, contact_count: 24 },
+  { id: 'IN-JH', name: 'Jharkhand', type: 'state', college_count: 10, contact_count: 24 },
+  { id: 'IN-CH', name: 'Chandigarh', type: 'union_territory', college_count: 8, contact_count: 23 },
+  { id: 'IN-TG', name: 'Telangana', type: 'state', college_count: 11, contact_count: 23 },
+  { id: 'IN-MN', name: 'Manipur', type: 'state', college_count: 7, contact_count: 22 },
+  { id: 'IN-HP', name: 'Himachal Pradesh', type: 'state', college_count: 16, contact_count: 20 },
+  { id: 'IN-WB', name: 'West Bengal', type: 'state', college_count: 12, contact_count: 20 },
+  { id: 'IN-JK', name: 'Jammu and Kashmir', type: 'state', college_count: 11, contact_count: 19 },
+  { id: 'IN-UT', name: 'Uttarakhand', type: 'state', college_count: 14, contact_count: 18 },
+  { id: 'IN-PB', name: 'Punjab', type: 'state', college_count: 17, contact_count: 17 },
+  { id: 'IN-OR', name: 'Odisha', type: 'state', college_count: 6, contact_count: 16 },
+  { id: 'IN-KL', name: 'Kerala', type: 'state', college_count: 12, contact_count: 14 },
+  { id: 'IN-ML', name: 'Meghalaya', type: 'state', college_count: 7, contact_count: 13 },
+  { id: 'IN-NL', name: 'Nagaland', type: 'state', college_count: 6, contact_count: 13 },
+  { id: 'IN-CT', name: 'Chhattisgarh', type: 'state', college_count: 12, contact_count: 12 },
+  { id: 'IN-PY', name: 'Puducherry', type: 'union_territory', college_count: 6, contact_count: 12 },
+  { id: 'IN-AR', name: 'Arunachal Pradesh', type: 'state', college_count: 8, contact_count: 10 },
+  { id: 'IN-GA', name: 'Goa', type: 'state', college_count: 7, contact_count: 8 },
+  { id: 'IN-SK', name: 'Sikkim', type: 'state', college_count: 6, contact_count: 7 },
+  { id: 'IN-TR', name: 'Tripura', type: 'state', college_count: 5, contact_count: 7 },
+  { id: 'IN-DN', name: 'Dadra and Nagar Haveli and Daman and Diu', type: 'union_territory', college_count: 4, contact_count: 5 },
+  { id: 'IN-MZ', name: 'Mizoram', type: 'state', college_count: 2, contact_count: 4 },
+  { id: 'IN-AN', name: 'Andaman and Nicobar Islands', type: 'union_territory', college_count: 2, contact_count: 2 },
+  { id: 'IN-LA', name: 'Ladakh', type: 'union_territory', college_count: 2, contact_count: 2 },
 ];
 
 function formatFileSize(bytes) {
@@ -382,7 +381,7 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
     initialTemplates[0]?.subject_template || initialTemplates[0]?.subjectTemplate || 'Proposal for Institutional Collaboration — Academic & Skill Development at {{college_name}}'
   );
   const [bodyTemplate, setBodyTemplate] = useState(
-    initialTemplates[0]?.body_template || initialTemplates[0]?.bodyTemplate || ''
+    htmlToJinjaText(initialTemplates[0]?.body_template || initialTemplates[0]?.bodyTemplate || '')
   );
   const [campaignAttachments, setCampaignAttachments] = useState(
     Array.isArray(initialTemplates[0]?.attachments) ? initialTemplates[0]?.attachments : []
@@ -413,7 +412,7 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
     const chosen = availableTemplates.find((t) => t.id === templateId);
     if (chosen) {
       setSubjectTemplate(chosen.subject_template || chosen.subjectTemplate || '');
-      setBodyTemplate(chosen.body_template || chosen.bodyTemplate || '');
+      setBodyTemplate(htmlToJinjaText(chosen.body_template || chosen.bodyTemplate || ''));
       setCampaignAttachments(Array.isArray(chosen.attachments) ? chosen.attachments : []);
     }
   };
@@ -432,7 +431,7 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
               const firstTpl = data.templates[0];
               setSelectedTemplateId(firstTpl.id);
               setSubjectTemplate(firstTpl.subject_template || firstTpl.subjectTemplate || '');
-              setBodyTemplate(firstTpl.body_template || firstTpl.bodyTemplate || '');
+              setBodyTemplate(htmlToJinjaText(firstTpl.body_template || firstTpl.bodyTemplate || ''));
               setCampaignAttachments(Array.isArray(firstTpl.attachments) ? firstTpl.attachments : []);
             }
           }
@@ -802,8 +801,9 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
     setCampaignAttachments((prev) => prev.filter((_, idx) => idx !== idxToRemove));
   };
 
-  const handleInsertImage = (imageHtml) => {
-    setBodyTemplate((prev) => prev + '\n' + imageHtml + '\n');
+  const handleInsertImage = () => {
+    setBodyTemplate((prev) => prev + '\n\n[Banner: Campus Outreach Initiative]\n\n');
+    setIsImageModalOpen(false);
   };
 
   const insertFormatTag = (openTag, closeTag, defaultText = 'sample text') => {
@@ -815,8 +815,7 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
     if (!url) return;
     const text = prompt('Enter clickable link text:', 'Explore Campus Programs');
     if (!text) return;
-    const linkHtml = `<a href="${url.trim()}" target="_blank" style="color: #2563eb; text-decoration: underline;">${text.trim()}</a>`;
-    setBodyTemplate((prev) => `${prev} ${linkHtml} `);
+    setBodyTemplate((prev) => `${prev} [${text.trim()}](${url.trim()}) `);
   };
 
   // Dispatch & Confirmation Modal
@@ -1068,7 +1067,7 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
       const active = availableTemplates.find((t) => t.id === selectedTemplateId) || availableTemplates[0];
       if (active) {
         setSubjectTemplate(active.subject_template || active.subjectTemplate || '');
-        setBodyTemplate(active.body_template || active.bodyTemplate || '');
+        setBodyTemplate(htmlToJinjaText(active.body_template || active.bodyTemplate || ''));
         setCampaignAttachments(Array.isArray(active.attachments) ? active.attachments : []);
       }
     }
@@ -2438,7 +2437,7 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
                       <button
                         type="button"
                         className={styles.formatBtn}
-                        onClick={() => insertFormatTag('<strong>', '</strong>', 'Bold text')}
+                        onClick={() => insertFormatTag('**', '**', 'Bold text')}
                       >
                         <strong>B</strong> Bold
                       </button>
@@ -2446,7 +2445,7 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
                       <button
                         type="button"
                         className={styles.formatBtn}
-                        onClick={() => insertFormatTag('<em>', '</em>', 'Italic text')}
+                        onClick={() => insertFormatTag('*', '*', 'Italic text')}
                       >
                         <em>I</em> Italic
                       </button>
@@ -2462,34 +2461,37 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
                       <button
                         type="button"
                         className={styles.formatBtn}
-                        onClick={() => insertFormatTag('<ul style="padding-left: 20px;">\n  <li>', '</li>\n  <li>Second key point</li>\n</ul>', 'Key benefit')}
+                        onClick={() => insertFormatTag('\n• ', '\n• Second key point\n', 'First key point')}
                       >
                         • Bullet List
                       </button>
                     </div>
 
-                    {/* Placeholder Helper Chips */}
+                    {/* Placeholder Helper Chips (Jinja & Clean Tags) */}
                     <div className={styles.helperChips}>
-                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('[College Name]')}>
-                        + [College Name]
+                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('{{college_name}}')}>
+                        + {'{{college_name}}'}
                       </button>
-                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('[Contact Person]')}>
-                        + [Contact Person]
+                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('{{contact_salutation}}')}>
+                        + {'{{contact_salutation}}'}
                       </button>
-                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('[Department]')}>
-                        + [Department]
+                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('{{contact_person}}')}>
+                        + {'{{contact_person}}'}
                       </button>
-                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('[Designation]')}>
-                        + [Designation]
+                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('{{department}}')}>
+                        + {'{{department}}'}
                       </button>
-                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('[State]')}>
-                        + [State]
+                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('{{designation}}')}>
+                        + {'{{designation}}'}
                       </button>
-                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('[Country]')}>
-                        + [Country]
+                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('{{state}}')}>
+                        + {'{{state}}'}
                       </button>
-                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('[City / District]')}>
-                        + [City / District]
+                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('{{country}}')}>
+                        + {'{{country}}'}
+                      </button>
+                      <button type="button" className={styles.variableChip} onClick={() => insertVariable('{{sender_name}}')}>
+                        + {'{{sender_name}}'}
                       </button>
                     </div>
 
@@ -2498,7 +2500,7 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
                       style={{ minHeight: '260px', borderTopLeftRadius: 0, borderTopRightRadius: 0 }}
                       value={bodyTemplate}
                       onChange={(e) => setBodyTemplate(e.target.value)}
-                      placeholder="Type or customize your campaign email body content here... Format with HTML or plain text, insert images/banners, links, and click merge tags to personalize."
+                      placeholder="Type or customize your campaign email body content in clean plain text or Jinja format (e.g. {{college_name}}, {{contact_salutation}}, **bold text**, • bullet points, or [Banner: Campus Outreach Initiative])..."
                       rows={12}
                     />
                   </div>

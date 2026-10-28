@@ -15,7 +15,7 @@ import {
   ImageIcon,
 } from './Icons';
 import EmailImageManagerModal from './EmailImageManagerModal.jsx';
-import { renderTemplate, formatBodyToHtml } from '@/lib/templates.js';
+import { renderTemplate, formatBodyToHtml, htmlToJinjaText } from '@/lib/templates.js';
 
 function formatFileSize(bytes) {
   if (!bytes) return '0 B';
@@ -102,19 +102,17 @@ export default function TemplateManager({ session, onTemplatesUpdated }) {
     setAttachmentError('');
     setFormData({
       title: tpl.title,
-      subject_template: tpl.subject_template,
-      body_template: tpl.body_template,
+      subject_template: tpl.subject_template || tpl.subjectTemplate || '',
+      body_template: htmlToJinjaText(tpl.body_template || tpl.bodyTemplate || ''),
       attachments: Array.isArray(tpl.attachments) ? tpl.attachments : [],
     });
     setIsEditorOpen(true);
   };
 
-  // Image insertion callback
-  const handleInsertImage = (imageHtml) => {
-    setFormData((prev) => ({
-      ...prev,
-      body_template: prev.body_template + '\n' + imageHtml + '\n',
-    }));
+  // Image insertion callback (inserts clean Jinja banner tag)
+  const handleInsertImage = () => {
+    insertAtCursor('\n[Banner: Campus Outreach Initiative]\n');
+    setIsImageModalOpen(false);
   };
 
   // Attachment file selection & upload
@@ -195,11 +193,12 @@ export default function TemplateManager({ session, onTemplatesUpdated }) {
 
     try {
       setSaving(true);
+      const finalHtml = formatBodyToHtml(formData.body_template);
       const payload = {
         id: editingTemplate ? editingTemplate.id : undefined,
         title: formData.title.trim(),
         subject_template: formData.subject_template.trim(),
-        body_template: formData.body_template.trim(),
+        body_template: finalHtml,
         attachments: formData.attachments || [],
       };
 
@@ -310,8 +309,7 @@ export default function TemplateManager({ session, onTemplatesUpdated }) {
     if (!url) return;
     const text = prompt('Enter clickable link text:', 'Explore Campus Programs');
     if (!text) return;
-    const linkHtml = `<a href="${url.trim()}" target="_blank" style="color: #2563eb; text-decoration: underline;">${text.trim()}</a>`;
-    insertAtCursor(` ${linkHtml} `);
+    insertAtCursor(` [${text.trim()}](${url.trim()}) `);
   };
 
   return (
@@ -557,23 +555,23 @@ export default function TemplateManager({ session, onTemplatesUpdated }) {
 
                 {/* Formatted Content Editor */}
                 <div className={styles.formGroup}>
-                  <label className={styles.label}>Template Body Content (HTML &amp; Text)</label>
+                  <label className={styles.label}>Template Body Content (Jinja Text Format — Plain &amp; Clean)</label>
 
-                  {/* Formatting & Insert Bar */}
+                  {/* Formatting & Insert Bar (Jinja & Markdown) */}
                   <div className={styles.formattingBar}>
                     <button
                       type="button"
                       className={`${styles.formatBtn} ${styles.formatBtnAccent}`}
-                      onClick={() => setIsImageModalOpen(true)}
+                      onClick={() => insertAtCursor('\n[Banner: Campus Outreach Initiative]\n')}
                     >
                       <ImageIcon size={14} />
-                      <span>Insert Image / Poster / Banner</span>
+                      <span>Insert Outreach Banner</span>
                     </button>
 
                     <button
                       type="button"
                       className={styles.formatBtn}
-                      onClick={() => insertFormatTag('<strong>', '</strong>', 'Bold text')}
+                      onClick={() => insertFormatTag('**', '**', 'bold text')}
                     >
                       <strong>B</strong> Bold
                     </button>
@@ -581,7 +579,7 @@ export default function TemplateManager({ session, onTemplatesUpdated }) {
                     <button
                       type="button"
                       className={styles.formatBtn}
-                      onClick={() => insertFormatTag('<em>', '</em>', 'Italic text')}
+                      onClick={() => insertFormatTag('*', '*', 'italic text')}
                     >
                       <em>I</em> Italic
                     </button>
@@ -597,7 +595,7 @@ export default function TemplateManager({ session, onTemplatesUpdated }) {
                     <button
                       type="button"
                       className={styles.formatBtn}
-                      onClick={() => insertFormatTag('<ul style="padding-left: 20px;">\n  <li>', '</li>\n  <li>Second benefit</li>\n</ul>', 'Key benefit')}
+                      onClick={() => insertAtCursor('\n• Key deliverable 1\n• Key deliverable 2\n')}
                     >
                       • Bullet List
                     </button>
@@ -605,55 +603,62 @@ export default function TemplateManager({ session, onTemplatesUpdated }) {
 
                   {/* Placeholder Variable Helper Chips */}
                   <div className={styles.variablesHelper}>
-                    <span className={styles.helperLabel}>Merge Tag:</span>
+                    <span className={styles.helperLabel}>Jinja Tokens:</span>
                     <button
                       type="button"
                       className={styles.variableChip}
-                      onClick={() => insertVariable('[College Name]')}
+                      onClick={() => insertVariable('{{college_name}}')}
                     >
-                      + [College Name]
+                      + {"{{college_name}}"}
                     </button>
                     <button
                       type="button"
                       className={styles.variableChip}
-                      onClick={() => insertVariable('[Contact Person]')}
+                      onClick={() => insertVariable('{{contact_salutation}}')}
                     >
-                      + [Contact Person]
+                      + {"{{contact_salutation}}"}
                     </button>
                     <button
                       type="button"
                       className={styles.variableChip}
-                      onClick={() => insertVariable('[Department]')}
+                      onClick={() => insertVariable('{{contact_person}}')}
                     >
-                      + [Department]
+                      + {"{{contact_person}}"}
                     </button>
                     <button
                       type="button"
                       className={styles.variableChip}
-                      onClick={() => insertVariable('[Designation]')}
+                      onClick={() => insertVariable('{{department}}')}
                     >
-                      + [Designation]
+                      + {"{{department}}"}
                     </button>
                     <button
                       type="button"
                       className={styles.variableChip}
-                      onClick={() => insertVariable('[State]')}
+                      onClick={() => insertVariable('{{designation}}')}
                     >
-                      + [State]
+                      + {"{{designation}}"}
                     </button>
                     <button
                       type="button"
                       className={styles.variableChip}
-                      onClick={() => insertVariable('[Country]')}
+                      onClick={() => insertVariable('{{state}}')}
                     >
-                      + [Country]
+                      + {"{{state}}"}
                     </button>
                     <button
                       type="button"
                       className={styles.variableChip}
-                      onClick={() => insertVariable('[Your Name]')}
+                      onClick={() => insertVariable('{{country}}')}
                     >
-                      + [Your Name]
+                      + {"{{country}}"}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.variableChip}
+                      onClick={() => insertVariable('{{sender_name}}')}
+                    >
+                      + {"{{sender_name}}"}
                     </button>
                   </div>
 
@@ -664,7 +669,7 @@ export default function TemplateManager({ session, onTemplatesUpdated }) {
                     style={{ minHeight: '260px', borderTopLeftRadius: 0, borderTopRightRadius: 0 }}
                     value={formData.body_template}
                     onChange={(e) => setFormData({ ...formData, body_template: e.target.value })}
-                    placeholder="Type or customize your email body content here... Use the toolbar above to insert images, formatting, links, and click merge tags to insert dynamic placeholders."
+                    placeholder="Type or customize your email body content here using simple plain text and Jinja variables like {{college_name}}, {{contact_salutation}}, **bold**, • bullets..."
                     rows={12}
                     required
                   />
