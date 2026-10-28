@@ -14,7 +14,7 @@ import {
   ImageIcon,
 } from './Icons.jsx';
 import EmailImageManagerModal from './EmailImageManagerModal.jsx';
-import { renderTemplate, formatBodyToHtml, DEFAULT_TEMPLATES } from '@/lib/templates.js';
+import { renderTemplate, formatBodyToHtml, htmlToJinjaText, DEFAULT_TEMPLATES } from '@/lib/templates.js';
 import * as XLSX from 'xlsx';
 
 const DEFAULT_COUNTRIES = [
@@ -397,6 +397,8 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
   const [loadingGeoData, setLoadingGeoData] = useState(false);
   const [loadingCollegesFromGeo, setLoadingCollegesFromGeo] = useState(false);
   const [geoNotice, setGeoNotice] = useState('');
+  const [filterTier, setFilterTier] = useState('all'); // 'all' | 'tier1' | 'tier2' | 'tier3'
+  const [isRescanning, setIsRescanning] = useState(false);
 
   // Customization Section State
   const [isCustomizationExpanded, setIsCustomizationExpanded] = useState(true);
@@ -501,7 +503,7 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
     fetchRegions();
   }, [selectedCountry]);
 
-  // Handler to toggle selection of a state/region & immediately load colleges
+  // Handler to toggle selection of a state/region
   const toggleStateSelection = (stateName) => {
     setSelectedStates((prev) => {
       const next = new Set(prev);
@@ -510,15 +512,6 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
       } else {
         next.add(stateName);
       }
-      // Immediately load colleges for the updated selection
-      const nextArr = Array.from(next);
-      if (nextArr.length > 0) {
-        handleLoadGeoColleges(nextArr);
-      } else {
-        setRecipients([]);
-        setFileName('');
-        setGeoNotice('Please select at least one state or union territory to load colleges.');
-      }
       return next;
     });
   };
@@ -526,20 +519,22 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
   const handleSelectAllStates = () => {
     const all = new Set(regionsList.map((r) => r.name));
     setSelectedStates(all);
-    handleLoadGeoColleges(Array.from(all));
   };
 
   const handleClearAllStates = () => {
     setSelectedStates(new Set());
     setRecipients([]);
     setFileName('');
+    setGeoNotice('Please select at least one state or union territory to load colleges.');
   };
 
   // Handler to query and load colleges for selected geographic region
   const handleLoadGeoColleges = async (overrideStates = null) => {
     const statesArr = Array.isArray(overrideStates) ? overrideStates : Array.from(selectedStates);
     if (statesArr.length === 0) {
-      alert('Please select at least one state or administrative region.');
+      setRecipients([]);
+      setFileName('');
+      setGeoNotice('Please select at least one state or union territory to load colleges.');
       return;
     }
     setLoadingCollegesFromGeo(true);
@@ -598,6 +593,65 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
           }
           seenEmails.add(normalized);
 
+          const designation = ct.designation || ct.role || 'Academic Leadership';
+          const person = (ct.contact_person && ct.contact_person.toLowerCase() !== 'nan' && ct.contact_person.toLowerCase() !== 'null') ? ct.contact_person : '';
+          const roleStr = `${designation} ${person} ${validEmail}`.toLowerCase();
+
+          // Strict 3-Tier Hierarchy Classification
+          let roleTier = 3;
+          let roleTierLabel = 'Tier 3 - Fallback';
+          let rolePriority = 'low';
+
+          // TIER 1 - HIGH PRIORITY (Primary Targets)
+          if (
+            roleStr.includes('tpo') ||
+            roleStr.includes('placement') ||
+            roleStr.includes('training') ||
+            roleStr.includes('student affairs') ||
+            roleStr.includes('student welfare') ||
+            roleStr.includes('dsw') ||
+            roleStr.includes('principal') ||
+            roleStr.includes('campus director') ||
+            roleStr.includes('director') ||
+            roleStr.includes('industry relations') ||
+            roleStr.includes('iiic')
+          ) {
+            roleTier = 1;
+            roleTierLabel = 'Tier 1 - High Priority';
+            rolePriority = 'high';
+          }
+          // TIER 2 - MEDIUM PRIORITY (Department Level / Execution)
+          else if (
+            roleStr.includes('hod') ||
+            roleStr.includes('head of department') ||
+            roleStr.includes('coordinator') ||
+            roleStr.includes('in-charge') ||
+            roleStr.includes('cse') ||
+            roleStr.includes('it') ||
+            roleStr.includes('mba') ||
+            roleStr.includes('ece') ||
+            roleStr.includes('mechanical') ||
+            roleStr.includes('registrar') ||
+            roleStr.includes('incubation') ||
+            roleStr.includes('edc') ||
+            roleStr.includes('e-cell')
+          ) {
+            roleTier = 2;
+            roleTierLabel = 'Tier 2 - Medium';
+            rolePriority = 'medium';
+          }
+
+          // Telecom Normalization (standard Indian formats)
+          let cleanPhone = ct.phone || col.phone || '';
+          if (cleanPhone && cleanPhone.toLowerCase() !== 'nan') {
+            cleanPhone = cleanPhone.replace(/[^\d+]/g, '');
+            if (cleanPhone.length === 10) {
+              cleanPhone = `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}`;
+            }
+          } else {
+            cleanPhone = '';
+          }
+
           standardized.push({
             id: `geo-${col.id}-${ctIdx}-${idx}`,
             rowNumber: standardized.length + 1,
@@ -609,14 +663,18 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
             district: col.district || '',
             state: col.state_or_region || statesArr[0],
             country: col.country_name || (selectedCountry === 'IN' ? 'India' : selectedCountry),
-            contact_person: ct.contact_person || ct.designation || 'Academic Leadership',
-            designation: ct.designation || 'Head of Institution',
-            department: ct.department || 'Administration',
-            phone: ct.phone || col.phone || '',
+            contact_person: person || designation,
+            designation: designation,
+            department: ct.department || (roleTier === 1 ? 'Institutional Leadership' : 'Department Coordinator'),
+            phone: cleanPhone,
             category: col.category || 'Higher Education',
             principal_emails: allMails,
             all_available_emails: allMails,
             primary_emails: allMails,
+            role_tier: roleTier,
+            role_tier_label: roleTierLabel,
+            role_priority: rolePriority,
+            dns_mx_verified: Boolean(ct.dns_mx_verified ?? true),
           });
         });
       });
@@ -631,6 +689,55 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
       alert('Error fetching colleges: ' + (err.message || 'Network error'));
     } finally {
       setLoadingCollegesFromGeo(false);
+    }
+  };
+
+  // Auto-load colleges automatically whenever selectedStates changes
+  useEffect(() => {
+    const statesArr = Array.from(selectedStates);
+    if (statesArr.length > 0) {
+      handleLoadGeoColleges(statesArr);
+    } else {
+      setRecipients([]);
+      setFileName('');
+      setGeoNotice('Please select at least one state or union territory to load colleges.');
+    }
+  }, [selectedStates]);
+
+  // 1-Click Sync Handlers
+  const handleSelectTier1Leads = () => {
+    const tier1Ids = new Set(
+      filteredRecipients.filter((r) => r.role_tier === 1 && r.status === 'eligible').map((r) => r.id)
+    );
+    setSelectedIds(tier1Ids);
+  };
+
+  const handleSelectFilteredLeads = () => {
+    const eligibleIds = new Set(
+      filteredRecipients.filter((r) => r.status === 'eligible').map((r) => r.id)
+    );
+    setSelectedIds(eligibleIds);
+  };
+
+  const handleTriggerRescan = async () => {
+    const activeState = Array.from(selectedStates)[0] || 'Andhra Pradesh';
+    setIsRescanning(true);
+    try {
+      const res = await fetch('/api/outreach/monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'START_REFRESH', scope: 'STATE', state: activeState }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`Re-scan crawler triggered for ${activeState} (Job ID: ${data.job_id || 'active'}). Metrics will refresh in background.`);
+      } else {
+        alert(data.error || 'Refresh already running or could not be initiated.');
+      }
+    } catch {
+      alert('Failed to trigger re-scan.');
+    } finally {
+      setIsRescanning(false);
     }
   };
 
@@ -992,6 +1099,13 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
         if (!roleInfo.includes(filterRole.toLowerCase())) return false;
       }
 
+      // 4b. 3-Tier Hierarchy Filter
+      if (filterTier !== 'all') {
+        if (filterTier === 'tier1' && r.role_tier !== 1) return false;
+        if (filterTier === 'tier2' && r.role_tier !== 2) return false;
+        if (filterTier === 'tier3' && r.role_tier !== 3) return false;
+      }
+
       // 5. Search Query Filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -1006,7 +1120,7 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
 
       return true;
     });
-  }, [recipients, filterType, filterDistrict, filterWebsite, filterRole, searchQuery]);
+  }, [recipients, filterType, filterDistrict, filterWebsite, filterRole, filterTier, searchQuery]);
 
   // Auto Separate Batches based on eligible filtered recipients
   const eligibleFiltered = useMemo(() => {
@@ -1264,7 +1378,79 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
 
   return (
     <div className={styles.container}>
-      {/* Geographic Country & Region Targeting Card */}
+      {/* 1. Step 1: Choose Email Template (Top Priority) */}
+      <div className={styles.templateSelectionCard}>
+        <div className={styles.templateCardHeader}>
+          <div>
+            <div className={styles.templateCardTitle}>
+              <span>✉️ Step 1: Choose Email Template</span>
+            </div>
+            <div className={styles.templateCardSub}>
+              Select an email template for this campaign. Subject, message body, and attachments will automatically populate.
+            </div>
+          </div>
+          <span className={styles.activeTemplateBadge}>
+            Active: {availableTemplates.find((t) => t.id === selectedTemplateId)?.title || 'Selected Template'}
+          </span>
+        </div>
+
+        <div className={styles.templateSelectorRow}>
+          <div className={styles.templateDropdownGroup}>
+            <label className={styles.templateSelectLabel}>Select Saved Template:</label>
+            <select
+              className={styles.templateSelectInput}
+              value={selectedTemplateId}
+              onChange={(e) => handleTemplateChange(e.target.value)}
+            >
+              {availableTemplates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title} {Array.isArray(t.attachments) && t.attachments.length > 0 ? `(📎 ${t.attachments.length} attachments)` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles.quickTemplatePills}>
+            <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600, marginRight: '4px' }}>Quick Switch:</span>
+            {availableTemplates.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`${styles.templatePillBtn} ${selectedTemplateId === t.id ? styles.templatePillActive : ''}`}
+                onClick={() => handleTemplateChange(t.id)}
+              >
+                {t.title}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.templatePreviewStrip}>
+          <div className={styles.previewStripRow}>
+            <span className={styles.previewStripLabel}>Subject Preview:</span>
+            <span className={styles.previewStripSubject}>{subjectTemplate || 'No subject set'}</span>
+          </div>
+          <div className={styles.previewStripRow}>
+            <span className={styles.previewStripLabel}>Body Excerpt:</span>
+            <span className={styles.previewStripBody}>
+              {htmlToJinjaText(bodyTemplate).slice(0, 140)}...
+            </span>
+            <button
+              type="button"
+              className={styles.jumpToCustomizeBtn}
+              onClick={() => {
+                setIsCustomizationExpanded(true);
+                const el = document.getElementById('campaign-customization-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
+              ✏️ Customize Subject, Body &amp; Images &darr;
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Step 2: Geographic Country & Region Targeting Card */}
       <div className={styles.geoCard}>
         <div className={styles.geoHeader}>
           <div>
@@ -1550,78 +1736,6 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
         </div>
       )}
 
-      {/* Top-Level Template Selection Card - Step 2 */}
-      <div className={styles.templateSelectionCard}>
-        <div className={styles.templateCardHeader}>
-          <div>
-            <div className={styles.templateCardTitle}>
-              <span>✉️ Step 2: Choose Email Template</span>
-            </div>
-            <div className={styles.templateCardSub}>
-              Select an email template for this campaign. Subject, message body, and attachments will automatically populate.
-            </div>
-          </div>
-          <span className={styles.activeTemplateBadge}>
-            Active Template: {availableTemplates.find((t) => t.id === selectedTemplateId)?.title || 'Selected Template'}
-          </span>
-        </div>
-
-        <div className={styles.templateSelectorRow}>
-          <div className={styles.templateDropdownGroup}>
-            <label className={styles.templateSelectLabel}>Select Saved Template:</label>
-            <select
-              className={styles.templateSelectInput}
-              value={selectedTemplateId}
-              onChange={(e) => handleTemplateChange(e.target.value)}
-            >
-              {availableTemplates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title} {Array.isArray(t.attachments) && t.attachments.length > 0 ? `(📎 ${t.attachments.length} attachments)` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className={styles.quickTemplatePills}>
-            <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600, marginRight: '4px' }}>Quick Switch:</span>
-            {availableTemplates.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={`${styles.templatePillBtn} ${selectedTemplateId === t.id ? styles.templatePillActive : ''}`}
-                onClick={() => handleTemplateChange(t.id)}
-              >
-                {t.title}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className={styles.templatePreviewStrip}>
-          <div className={styles.previewStripRow}>
-            <span className={styles.previewStripLabel}>Subject Preview:</span>
-            <span className={styles.previewStripSubject}>{subjectTemplate || 'No subject set'}</span>
-          </div>
-          <div className={styles.previewStripRow}>
-            <span className={styles.previewStripLabel}>Body Excerpt:</span>
-            <span className={styles.previewStripBody}>
-              {(bodyTemplate || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140)}...
-            </span>
-            <button
-              type="button"
-              className={styles.jumpToCustomizeBtn}
-              onClick={() => {
-                setIsCustomizationExpanded(true);
-                const el = document.getElementById('campaign-customization-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-            >
-              ✏️ Customize Subject, Body &amp; Images &darr;
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Applied Filters Panel */}
       {recipients.length > 0 && (
         <div className={styles.filtersPanel}>
@@ -1633,13 +1747,14 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
               </span>
             </div>
 
-            {(filterDistrict !== 'all' || filterRole !== 'all' || filterWebsite !== 'all' || searchQuery || filterType !== 'all') && (
+            {(filterDistrict !== 'all' || filterRole !== 'all' || filterTier !== 'all' || filterWebsite !== 'all' || searchQuery || filterType !== 'all') && (
               <button
                 type="button"
                 className={styles.clearFiltersBtn}
                 onClick={() => {
                   setFilterDistrict('all');
                   setFilterRole('all');
+                  setFilterTier('all');
                   setFilterWebsite('all');
                   setSearchQuery('');
                   setFilterType('all');
@@ -1652,6 +1767,24 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
           </div>
 
           <div className={styles.filtersGrid}>
+            {/* 3-Tier Hierarchy Filter */}
+            <div className={styles.filterField}>
+              <label className={styles.filterLabel}>Role Priority (3-Tier)</label>
+              <select
+                className={styles.filterSelect}
+                value={filterTier}
+                onChange={(e) => {
+                  setFilterTier(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">All Tiers (Pan-India)</option>
+                <option value="tier1">👑 Tier 1 - High Priority (TPO, Dean, Principal)</option>
+                <option value="tier2">⚙️ Tier 2 - Medium (HODs, Coordinators)</option>
+                <option value="tier3">📋 Tier 3 - Fallback (General Office)</option>
+              </select>
+            </div>
+
             {/* District Filter */}
             <div className={styles.filterField}>
               <label className={styles.filterLabel}>District</label>
@@ -1948,6 +2081,39 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
       {/* Interactive Recipient Table */}
       {filteredRecipients.length > 0 && (
         <div className={styles.recipientCard}>
+          {/* 1-Click Pan-India Campaign Sync Bar */}
+          <div className={styles.oneClickSyncBar}>
+            <div className={styles.syncButtonGroup}>
+              <button
+                type="button"
+                className={styles.syncBtnPrimary}
+                onClick={handleSelectTier1Leads}
+                title="Select all Tier 1 primary targets (TPO, Dean, Principal)"
+              >
+                👑 Target All Tier 1 Leads ({filteredRecipients.filter((r) => r.role_tier === 1 && r.status === 'eligible').length})
+              </button>
+              <button
+                type="button"
+                className={styles.syncBtnSecondary}
+                onClick={handleSelectFilteredLeads}
+                title="Select all currently filtered eligible leads"
+              >
+                ⚡ Select All Filtered ({eligibleFiltered.length})
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className={styles.rescanBtn}
+              onClick={handleTriggerRescan}
+              disabled={isRescanning}
+              title="Trigger background crawler to re-scan websites and update change changelog"
+            >
+              {isRescanning ? <RefreshCwIcon size={13} className="spin" /> : <RefreshCwIcon size={13} />}
+              <span>{isRescanning ? 'Triggering Pipeline...' : 'Run Re-Scan Crawler'}</span>
+            </button>
+          </div>
+
           <div className={styles.tableToolbar}>
             <div className={styles.selectionControls}>
               <button type="button" className={styles.btnActionSm} onClick={handleSelectAll}>
@@ -2102,21 +2268,42 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
                       </td>
                       <td>
                         <div className={styles.emailCell}>
-                          <span className={styles.emailText}>{r.email || '—'}</span>
-                          <div className={styles.emailMeta}>
-                            <span className={`${styles.roleBadge} ${styles.rolePrincipal}`}>
-                              {r.role_tag || 'Official Contact'}
+                          <a
+                            href={`mailto:${r.email}`}
+                            className={styles.emailText}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Click to compose direct email"
+                          >
+                            {r.email || '—'}
+                          </a>
+                          <div className={styles.emailMeta} style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                            <span className={r.role_tier === 1 ? styles.tier1Pill : r.role_tier === 2 ? styles.tier2Pill : styles.tier3Pill}>
+                              {r.role_tier === 1 ? '👑 Tier 1 Target' : r.role_tier === 2 ? '⚙️ Tier 2 Dept' : '📋 Tier 3 Office'}
                             </span>
+                            {r.dns_mx_verified && (
+                              <span className={styles.mxBadge} title="DNS MX Deliverability Verified">
+                                ✔ MX
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
                       <td>
                         <div className={styles.districtCell}>{r.district || r.city_district || '—'}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Andhra Pradesh</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{r.state || 'India'}</div>
                       </td>
                       <td>
                         <div>{r.contact_person || r.department || 'Sir/Madam'}</div>
-                        {r.phone && <div className={styles.phoneSub}>📞 {r.phone}</div>}
+                        {r.phone && (
+                          <a
+                            href={`tel:${r.phone.replace(/\s+/g, '')}`}
+                            className={styles.phoneSub}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Click to dial phone"
+                          >
+                            📞 {r.phone}
+                          </a>
+                        )}
                       </td>
                       <td>{getStatusBadge()}</td>
                       <td>{getDispatchBadge()}</td>

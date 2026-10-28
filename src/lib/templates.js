@@ -1,4 +1,5 @@
 import { escapeHtml } from './config.js';
+import { SF_CREATOR_PASS_BANNER, SF_CAMPUS_POSTER } from './bannerDataUris.js';
 
 export const DEFAULT_TEMPLATES = [
   {
@@ -10,7 +11,7 @@ export const DEFAULT_TEMPLATES = [
 <p>Greetings from Campus Outreach!</p>
 
 <div style="margin: 18px 0; text-align: center;">
-  <img src="/uploads/email-images/sf_creator_pass_banner.svg" alt="Campus Outreach Initiative" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
+  <img src="${SF_CREATOR_PASS_BANNER}" alt="Campus Outreach Initiative" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
 </div>
 
 <p>We propose an institutional collaboration with <strong>{{college_name}}</strong>{{department_clause}} in <strong>{{state}}, {{country}}</strong> to help students develop industry-relevant skills, participate in national workshops, and explore career and innovation opportunities.</p>
@@ -40,8 +41,8 @@ We would welcome an introductory meeting with your leadership team to understand
 
 <p style="margin-top: 24px;">Warm regards,<br />
 <strong>{{sender_name}}</strong><br />
-Campus Outreach Coordinator<br />
-Campus Email Automation Platform</p>`,
+Campus Relations &amp; Outreach<br />
+Campus Outreach Initiative</p>`,
     is_default: 1,
   },
   {
@@ -53,7 +54,7 @@ Campus Email Automation Platform</p>`,
 <p>Greetings from Campus Outreach Team!</p>
 
 <div style="margin: 20px 0; text-align: center;">
-  <img src="/uploads/email-images/sf_campus_festival_poster.svg" alt="National Student Innovation & Skills Workshop 2026" style="max-width: 100%; height: auto; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.1);" />
+  <img src="${SF_CAMPUS_POSTER}" alt="National Student Innovation & Skills Workshop 2026" style="max-width: 100%; height: auto; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.1);" />
 </div>
 
 <p>We are delighted to invite <strong>{{college_name}}</strong>, {{state}}, to participate in the upcoming <strong>National Student Innovation &amp; Skills Workshop 2026</strong>.</p>
@@ -73,7 +74,7 @@ Institutions may nominate student cohorts directly through their department or f
 <p style="margin-top: 24px;">With highest regards,<br />
 <strong>{{sender_name}}</strong><br />
 Program Director | Campus Outreach<br />
-Campus Email Automation Platform</p>`,
+Campus Outreach Initiative</p>`,
     is_default: 0,
   },
   {
@@ -87,7 +88,7 @@ Campus Email Automation Platform</p>`,
 <p>We are excited to invite <strong>{{college_name}}</strong>{{department_clause}} in <strong>{{state}}, {{country}}</strong> to establish an official <strong>Student Innovation &amp; Outreach Chapter</strong>.</p>
 
 <div style="margin: 16px 0; text-align: center;">
-  <img src="/uploads/email-images/sf_creator_pass_banner.svg" alt="Student Innovation Chapter" style="max-width: 100%; height: auto; border-radius: 8px;" />
+  <img src="${SF_CREATOR_PASS_BANNER}" alt="Student Innovation Chapter" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
 </div>
 
 <p>Student Chapter Leads receive direct mentorship, hands-on leadership experience, and resources to organize workshops, hackathons, and webinars on campus.</p>
@@ -103,51 +104,124 @@ Campus Email Automation Platform</p>`,
 
 <p style="margin-top: 24px;">Warm regards,<br />
 <strong>{{sender_name}}</strong><br />
-Campus Outreach Coordinator<br />
-Campus Email Automation Platform</p>`,
+Campus Relations &amp; Outreach<br />
+Campus Outreach Initiative</p>`,
     is_default: 0,
   }
 ];
 
 /**
+ * Converts rich HTML email templates into clean, editable Jinja-templated plain text.
+ * Strips raw HTML tags while preserving paragraphs, bolding, lists, and Jinja variables.
+ */
+export function htmlToJinjaText(html) {
+  if (!html) return '';
+  let text = String(html);
+
+  // Strip images / banners cleanly
+  text = text.replace(/<div[^>]*>\s*<img[^>]*>\s*<\/div>/gi, '');
+  text = text.replace(/<img[^>]*>/gi, '');
+
+  // Convert list items to bullet lines
+  text = text.replace(/<li[^>]*>(.*?)<\/li>/gis, (m, c) => `• ${c.trim()}\n`);
+  text = text.replace(/<\/?(?:ul|ol)[^>]*>/gi, '\n');
+
+  // Convert line breaks and paragraph ends
+  text = text.replace(/<br\s*\/?>/gi, '\n');
+  text = text.replace(/<\/p>/gi, '\n\n');
+  text = text.replace(/<p[^>]*>/gi, '');
+
+  // Convert bold and italic tags to markdown style
+  text = text.replace(/<strong[^>]*>(.*?)<\/strong>/gis, '**$1**');
+  text = text.replace(/<b[^>]*>(.*?)<\/b>/gis, '**$1**');
+  text = text.replace(/<em[^>]*>(.*?)<\/em>/gis, '*$1*');
+  text = text.replace(/<i[^>]*>(.*?)<\/i>/gis, '*$1*');
+
+  // Strip all other HTML tags
+  text = text.replace(/<[^>]+>/g, '');
+
+  // Decode common HTML entities
+  text = text
+    .replace(/&amp;/g, '&')
+    .replace(/&bull;/g, '•')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&rarr;/g, '→')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+
+  // Collapse 3 or more consecutive newlines into 2
+  text = text.replace(/\n{3,}/g, '\n\n');
+
+  return text.trim();
+}
+
+/**
  * Ensures text line breaks, paragraphs, and indentation are formatted into standard HTML
  * preserving exact visual alignment across all email clients (Gmail, Outlook, Yahoo) and web preview panes.
- * Converts markdown links and bold emphasis to genuine HTML elements.
+ * Converts markdown links, bold emphasis, and bullet lists to genuine HTML elements.
+ * Also self-heals broken banner image links with reliable embedded data URIs.
  */
 export function formatBodyToHtml(textOrHtml) {
   if (!textOrHtml) return '';
 
-  // Check if string already contains structural HTML tags (<p>, <div>, <table>, <ul>, <ol>, <h1-6>, <img>)
-  const hasStructuralTags = /<(p|div|table|ul|ol|h[1-6]|blockquote|img)\b[^>]*>/i.test(textOrHtml);
+  let processed = String(textOrHtml);
+
+  // Self-heal legacy image links to always use embedded data URIs
+  processed = processed.replace(/\/uploads\/email-images\/sf_creator_pass_banner\.svg/g, SF_CREATOR_PASS_BANNER);
+  processed = processed.replace(/\/uploads\/email-images\/sf_campus_festival_poster\.svg/g, SF_CAMPUS_POSTER);
+
+  // If text contains a banner placeholder, insert the verified banner
+  processed = processed.replace(
+    /\[Banner(?::\s*[^\]]+)?\]/gi,
+    `<div style="margin: 18px 0; text-align: center;"><img src="${SF_CREATOR_PASS_BANNER}" alt="Campus Outreach Initiative" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" /></div>`
+  );
+
+  // Check if string already contains structural HTML tags (<p>, <div>, <table>, <ul>, <ol>, <h1-6>, <blockquote>, <img>)
+  const hasStructuralTags = /<(p|div|table|ul|ol|h[1-6]|blockquote|img)\b[^>]*>/i.test(processed);
 
   if (hasStructuralTags) {
-    return textOrHtml;
+    return processed;
   }
-
-  let processed = textOrHtml;
 
   // Convert markdown links: [text](url) -> <a href="url">text</a>
   processed = processed.replace(
     /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-    '<a href="$2" target="_blank" style="color: #2563eb; text-decoration: underline;">$1</a>'
+    '<a href="$2" target="_blank" style="color: #0d9488; text-decoration: underline;">$1</a>'
   );
 
   // Convert standalone http/https URLs not already wrapped in tags
   processed = processed.replace(
     /(^|[\s(])(https?:\/\/[^\s<)]+)/g,
-    '$1<a href="$2" target="_blank" style="color: #2563eb; text-decoration: underline;">$2</a>'
+    '$1<a href="$2" target="_blank" style="color: #0d9488; text-decoration: underline;">$2</a>'
   );
 
   // Convert markdown bold: **text** or *text* -> <strong>text</strong>
   processed = processed.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
   processed = processed.replace(/(^|[\s(])\*([^*\n]+)\*([\s.,!?)]|$)/gm, '$1<strong>$2</strong>$3');
 
-  // Convert plain text with double newlines into semantic paragraphs and single newlines to <br />
+  // Convert plain text with double newlines into semantic paragraphs, handling bullet lines
   const paragraphs = processed.split(/\r?\n\s*\r?\n/);
   return paragraphs
     .map((para) => {
       const trimmed = para.trim();
       if (!trimmed) return '';
+
+      // Check if paragraph consists of bullet list items
+      const lines = trimmed.split(/\r?\n/);
+      const isBulletList = lines.length > 0 && lines.every((line) => line.trim().startsWith('•') || line.trim().startsWith('-'));
+
+      if (isBulletList) {
+        const lis = lines
+          .map((line) => {
+            const clean = line.replace(/^[•\-]\s*/, '').trim();
+            return `<li style="margin-bottom: 6px;">${clean}</li>`;
+          })
+          .join('\n');
+        return `<ul style="padding-left: 20px; line-height: 1.6; margin: 12px 0; color: #111827;">\n${lis}\n</ul>`;
+      }
+
       const withLineBreaks = trimmed.replace(/\r?\n/g, '<br />\n');
       return `<p style="margin: 0 0 16px 0; line-height: 1.65; color: #111827;">${withLineBreaks}</p>`;
     })

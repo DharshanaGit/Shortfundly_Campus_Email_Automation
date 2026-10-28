@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styles from './EmailReviewModal.module.css';
 import {
   SendIcon,
@@ -14,7 +14,18 @@ import {
   BuildingIcon,
   MailIcon
 } from './Icons.jsx';
-import { renderTemplate, formatBodyToHtml } from '@/lib/templates.js';
+import { renderTemplate, formatBodyToHtml, htmlToJinjaText } from '@/lib/templates.js';
+
+const JINJA_VARIABLES = [
+  { tag: '{{college_name}}', label: 'College' },
+  { tag: '{{contact_salutation}}', label: 'Salutation' },
+  { tag: '{{contact_person}}', label: 'Person' },
+  { tag: '{{department}}', label: 'Department' },
+  { tag: '{{designation}}', label: 'Designation' },
+  { tag: '{{state}}', label: 'State' },
+  { tag: '{{country}}', label: 'Country' },
+  { tag: '{{sender_name}}', label: 'Sender' },
+];
 
 export default function EmailReviewModal({
   isOpen,
@@ -27,10 +38,11 @@ export default function EmailReviewModal({
 }) {
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' | 'edit'
   const [subject, setSubject] = useState('');
-  const [bodyHtml, setBodyHtml] = useState('');
+  const [bodyText, setBodyText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendResult, setSendResult] = useState(null);
   const [overrideReason, setOverrideReason] = useState('');
+  const textareaRef = useRef(null);
 
   const getInterpolationVars = () => {
     if (!initialData) return {};
@@ -40,7 +52,9 @@ export default function EmailReviewModal({
       contact_person: initialData.contact_person || '',
       designation: initialData.designation || '',
       email: initialData.email || '',
-      sender_name: 'Campus Outreach Coordinator',
+      state: initialData.state || 'Andhra Pradesh',
+      country: initialData.country || 'India',
+      sender_name: user?.name || 'Campus Relations Lead',
     };
   };
 
@@ -53,28 +67,15 @@ export default function EmailReviewModal({
     const applyTemplate = (tplList) => {
       const tpl = tplList.find((t) => t.id === initialData.template_id) || tplList[0];
       if (tpl) {
-        const vars = {
-          college_name: initialData.college_name || '',
-          department: initialData.department || '',
-          contact_person: initialData.contact_person || '',
-          designation: initialData.designation || '',
-          email: initialData.email || '',
-          sender_name: 'Campus Outreach Coordinator',
-        };
-
         const rawSubject = tpl.subjectTemplate || tpl.subject_template || '';
         const rawBody = tpl.bodyTemplate || tpl.body_template || '';
 
-        const renderedSubject = renderTemplate(rawSubject, vars);
-        const renderedBody = renderTemplate(rawBody, vars);
-
-        setSubject(renderedSubject);
-        setBodyHtml(renderedBody);
+        setSubject(rawSubject);
+        setBodyText(htmlToJinjaText(rawBody));
       }
     };
 
     if (allTemplates.length === 0) {
-      // Fetch fresh templates directly if props are empty
       fetch('/api/outreach/templates')
         .then((res) => res.json())
         .then((data) => {
@@ -90,11 +91,30 @@ export default function EmailReviewModal({
     setSendResult(null);
     setOverrideReason('');
     setActiveTab('preview');
-  }, [initialData, templates]);
+  }, [initialData, templates, user]);
 
   if (!isOpen || !initialData) return null;
 
   const vars = getInterpolationVars();
+
+  // Helper to insert Jinja placeholder at cursor position
+  const handleInsertJinjaTag = (tag) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setBodyText((prev) => prev + ' ' + tag);
+      return;
+    }
+
+    const start = textarea.selectionStart ?? bodyText.length;
+    const end = textarea.selectionEnd ?? bodyText.length;
+    const nextText = bodyText.substring(0, start) + tag + bodyText.substring(end);
+    setBodyText(nextText);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + tag.length, start + tag.length);
+    }, 10);
+  };
 
   const handleSend = async () => {
     setIsSending(true);
@@ -102,7 +122,7 @@ export default function EmailReviewModal({
 
     const hasDuplicate = Boolean(initialData.duplicateWarning?.isDuplicate);
     const finalSubject = renderTemplate(subject, vars);
-    const finalBodyHtml = formatBodyToHtml(renderTemplate(bodyHtml, vars));
+    const finalBodyHtml = formatBodyToHtml(renderTemplate(bodyText, vars));
 
     try {
       const response = await fetch('/api/outreach/send', {
@@ -126,8 +146,9 @@ export default function EmailReviewModal({
       if (response.ok && data.success) {
         setSendResult({
           type: 'SUCCESS',
-          message: `Campus proposal successfully dispatched! SMTP Status: ${data.status} (250 OK)`,
+          message: `Campus proposal successfully dispatched to ${initialData.email}!`,
           messageId: data.messageId,
+          status: data.status || '250 OK',
         });
         if (onSuccess) onSuccess();
       } else {
@@ -148,6 +169,8 @@ export default function EmailReviewModal({
   };
 
   const isDuplicate = Boolean(initialData.duplicateWarning?.isDuplicate);
+  const renderedSubject = renderTemplate(subject, vars);
+  const renderedBodyHtml = formatBodyToHtml(renderTemplate(bodyText, vars));
 
   return (
     <div className={styles.backdrop} onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -199,41 +222,98 @@ export default function EmailReviewModal({
             onClick={() => setActiveTab('edit')}
           >
             <EditIcon size={14} />
-            <span>Inline Content Editor</span>
+            <span>Inline Content Editor (Jinja Text)</span>
           </button>
         </div>
 
         {/* Modal Body */}
         <div className={styles.modalBody}>
+          {/* Success State Banner (Clean Toast Style outside Email Box) */}
+          {sendResult && sendResult.type === 'SUCCESS' && (
+            <div className={styles.successNotificationCard}>
+              <div className={styles.successIconBox}>
+                <CheckCircleIcon size={22} />
+              </div>
+              <div className={styles.successContent}>
+                <div className={styles.successTitle}>Email Successfully Dispatched</div>
+                <div className={styles.successMessage}>
+                  Delivered to <strong>{initialData.email}</strong> for <strong>{initialData.college_name}</strong>.
+                </div>
+              </div>
+              <button type="button" className={styles.successDoneBtn} onClick={onClose}>
+                Done &amp; Close
+              </button>
+            </div>
+          )}
+
+          {/* Failure Banner */}
+          {sendResult && sendResult.type === 'ERROR' && (
+            <div className={styles.errorNotificationCard}>
+              <AlertCircleIcon size={20} />
+              <div className={styles.errorMessage}>{sendResult.message}</div>
+            </div>
+          )}
+
           {activeTab === 'preview' ? (
             <div className={styles.previewContainer}>
-              <div className={styles.previewSubject}>
-                Subject: {renderTemplate(subject, vars)}
+              <div className={styles.previewSubjectBar}>
+                <span className={styles.previewSubjectTag}>SUBJECT:</span>
+                <span className={styles.previewSubjectValue}>{renderedSubject}</span>
               </div>
               <div
                 className={styles.previewHtml}
-                dangerouslySetInnerHTML={{ __html: formatBodyToHtml(renderTemplate(bodyHtml, vars)) }}
+                dangerouslySetInnerHTML={{ __html: renderedBodyHtml }}
               />
             </div>
           ) : (
             <div className={styles.editSection}>
+              {/* Email Subject Line with comfortable spacing */}
               <div className={styles.fieldGroup}>
-                <label className={styles.label}>Email Subject Line</label>
+                <div className={styles.fieldLabelRow}>
+                  <label className={styles.label}>Email Subject Line</label>
+                  <span className={styles.labelHint}>Supports Jinja tokens like {"{{college_name}}"}</span>
+                </div>
                 <input
                   type="text"
                   className={styles.subjectInput}
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
+                  placeholder="e.g. Collaboration Proposal for {{college_name}}"
                 />
               </div>
 
+              {/* Email Body Content - Jinja Simple Text */}
               <div className={styles.fieldGroup}>
-                <label className={styles.label}>Email Body Content (HTML &amp; Plain Text Formatted)</label>
+                <div className={styles.fieldLabelRow}>
+                  <label className={styles.label}>Email Body Content</label>
+                  <span className={styles.labelHint}>Simple text with Jinja placeholders — no HTML tags required</span>
+                </div>
+
+                {/* Jinja Insert Tags Toolbar */}
+                <div className={styles.jinjaToolbar}>
+                  <span className={styles.toolbarTitle}>Quick Insert:</span>
+                  <div className={styles.jinjaPillsRow}>
+                    {JINJA_VARIABLES.map((v) => (
+                      <button
+                        key={v.tag}
+                        type="button"
+                        className={styles.jinjaPill}
+                        onClick={() => handleInsertJinjaTag(v.tag)}
+                        title={`Click to insert ${v.tag}`}
+                      >
+                        {v.tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <textarea
+                  ref={textareaRef}
                   className={styles.bodyTextarea}
-                  value={bodyHtml}
-                  onChange={(e) => setBodyHtml(e.target.value)}
-                  placeholder="Enter or refine HTML email proposal content..."
+                  value={bodyText}
+                  onChange={(e) => setBodyText(e.target.value)}
+                  placeholder="Write email proposal here in plain text. Use {{college_name}}, {{contact_salutation}}, etc. for variables..."
+                  rows={14}
                 />
               </div>
             </div>
@@ -258,33 +338,6 @@ export default function EmailReviewModal({
                 value={overrideReason}
                 onChange={(e) => setOverrideReason(e.target.value)}
               />
-            </div>
-          )}
-
-          {/* Status Result */}
-          {sendResult && (
-            <div
-              className={`${styles.resultBanner} ${
-                sendResult.type === 'SUCCESS' ? styles.resultSuccess : styles.resultError
-              }`}
-            >
-              <div className={styles.resultHeader}>
-                {sendResult.type === 'SUCCESS' ? (
-                  <CheckCircleIcon size={16} />
-                ) : (
-                  <AlertCircleIcon size={16} />
-                )}
-                <span>{sendResult.type === 'SUCCESS' ? 'SMTP Accepted' : 'Delivery Attempt Failed'}</span>
-              </div>
-              <p>{sendResult.message}</p>
-              {sendResult.messageId && (
-                <p style={{ fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
-                  Message ID: {sendResult.messageId}
-                </p>
-              )}
-              {sendResult.classification && (
-                <p style={{ fontSize: '11px' }}>Category: {sendResult.classification}</p>
-              )}
             </div>
           )}
         </div>
@@ -318,14 +371,7 @@ export default function EmailReviewModal({
                 )}
               </button>
             ) : (
-              <div style={{
-                fontSize: '12px',
-                color: 'var(--text-muted)',
-                background: 'rgba(255, 255, 255, 0.04)',
-                padding: '8px 14px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-subtle)',
-              }}>
+              <div className={styles.restrictedNotice}>
                 Sending Restricted (Manager View-Only Mode)
               </div>
             )

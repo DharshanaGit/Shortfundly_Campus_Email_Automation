@@ -21,6 +21,8 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
     department: '',
     contact_person: '',
     designation: '',
+    state: 'Andhra Pradesh',
+    country: 'India',
     template_id: templates[0]?.id || 'campus-collaboration-proposal',
   });
 
@@ -108,6 +110,8 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
       department: '',
       contact_person: '',
       designation: '',
+      state: 'Andhra Pradesh',
+      country: 'India',
       template_id: templates[0]?.id || 'campus-collaboration-proposal',
     });
     setErrors({});
