@@ -15,6 +15,7 @@ import {
   EyeOffIcon,
   CampaignPulseLogoSymbol,
   ArrowRightIcon,
+  UserIcon,
 } from '@/components/Icons.jsx';
 
 // Accepted admin passwords for instant real-time verification while typing
@@ -28,6 +29,9 @@ const ACCEPTED_PASSWORDS = [
 export default function LoginPage() {
   const router = useRouter();
 
+  // Mode: 'login' | 'register'
+  const [mode, setMode] = useState('login');
+
   // Field states
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -38,15 +42,24 @@ export default function LoginPage() {
   const [isPasswordValid, setIsPasswordValid] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Registration Confirm Password
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [isConfirmPasswordValid, setIsConfirmPasswordValid] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [captchaNonce, setCaptchaNonce] = useState(1);
 
   const [loading, setLoading] = useState(false);
   const [generalError, setGeneralError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
   const [capsLockActive, setCapsLockActive] = useState(false);
 
   // Field element refs for smooth auto-advancing focus
+  const emailInputRef = useRef(null);
   const passwordInputRef = useRef(null);
+  const confirmPasswordInputRef = useRef(null);
   const captchaInputRef = useRef(null);
 
   useEffect(() => {
@@ -66,37 +79,53 @@ export default function LoginPage() {
     }
   };
 
-  // Real-time email validation while typing
-  const handleEmailChange = (e) => {
-    const val = e.target.value;
-    setEmail(val);
+  // Switch between Login and Register modes
+  const handleSwitchMode = (newMode) => {
+    setMode(newMode);
     setGeneralError(null);
+    setSuccessMessage(null);
+    setPassword('');
+    setPasswordError('');
+    setIsPasswordValid(false);
+    setConfirmPassword('');
+    setConfirmPasswordError('');
+    setIsConfirmPasswordValid(false);
+    setCaptchaAnswer('');
+    refreshCaptcha();
 
+    // Re-validate existing email if present
+    if (email) {
+      validateEmail(email);
+    }
+  };
+
+  // Core email validation logic
+  const validateEmail = (val) => {
     if (!val) {
       setEmailError('');
       setIsEmailValid(false);
-      return;
+      return false;
     }
 
     // 1. Error on Capital letters
     if (/[A-Z]/.test(val)) {
       setEmailError('Capital letters are not allowed in email. Use only lowercase letters.');
       setIsEmailValid(false);
-      return;
+      return false;
     }
 
     // 2. Error on Numbers
     if (/[0-9]/.test(val)) {
       setEmailError('Numbers are not allowed in email. Use only lowercase letters.');
       setIsEmailValid(false);
-      return;
+      return false;
     }
 
     // 3. Error on disallowed characters (spaces or special symbols other than @ and .)
     if (/[^a-z@.]/.test(val)) {
       setEmailError('Special characters and spaces are not allowed in email.');
       setIsEmailValid(false);
-      return;
+      return false;
     }
 
     // 4. Must contain only a single @
@@ -104,14 +133,14 @@ export default function LoginPage() {
     if (atCount > 1) {
       setEmailError('Email cannot contain multiple "@" symbols.');
       setIsEmailValid(false);
-      return;
+      return false;
     }
 
     // 5. Must end with @gmail.com
     if (!val.endsWith('@gmail.com')) {
       setEmailError('Email must end with @gmail.com');
       setIsEmailValid(false);
-      return;
+      return false;
     }
 
     // 6. Username prefix before @gmail.com must be non-empty and lowercase letters only
@@ -119,25 +148,38 @@ export default function LoginPage() {
     if (!prefix || prefix.length === 0) {
       setEmailError('Please enter your email prefix before @gmail.com');
       setIsEmailValid(false);
-      return;
+      return false;
     }
 
     if (!/^[a-z]+$/.test(prefix)) {
       setEmailError('Email prefix must contain only lowercase letters (no dots or symbols).');
       setIsEmailValid(false);
-      return;
+      return false;
     }
 
     // Valid email achieved!
     setEmailError('');
     setIsEmailValid(true);
+    return true;
+  };
 
-    // Auto-advance focus to Password field if not already filled
-    setTimeout(() => {
-      if (passwordInputRef.current && !password) {
-        passwordInputRef.current.focus();
-      }
-    }, 50);
+  // Real-time email validation while typing
+  const handleEmailChange = (e) => {
+    const val = e.target.value;
+    setEmail(val);
+    setGeneralError(null);
+    setSuccessMessage(null);
+
+    const isValid = validateEmail(val);
+
+    if (isValid) {
+      // Auto-advance focus to Password field if not already filled
+      setTimeout(() => {
+        if (passwordInputRef.current && !password) {
+          passwordInputRef.current.focus();
+        }
+      }, 50);
+    }
   };
 
   // Real-time password validation while typing
@@ -145,6 +187,7 @@ export default function LoginPage() {
     const val = e.target.value;
     setPassword(val);
     setGeneralError(null);
+    setSuccessMessage(null);
 
     if (!val) {
       setPasswordError('');
@@ -152,19 +195,88 @@ export default function LoginPage() {
       return;
     }
 
-    // Real-time check if typed password matches accepted system password
-    const matches = ACCEPTED_PASSWORDS.includes(val);
-    if (!matches) {
-      setPasswordError('Wrong password. Please enter the correct password.');
-      setIsPasswordValid(false);
+    if (mode === 'login') {
+      // Real-time check if typed password matches accepted system password or local registered user password
+      let registeredPwd = null;
+      if (typeof window !== 'undefined' && email) {
+        try {
+          registeredPwd = localStorage.getItem(`sf_user_pwd_${email.toLowerCase().trim()}`);
+        } catch {}
+      }
+
+      const matches = ACCEPTED_PASSWORDS.includes(val) || (registeredPwd && val === registeredPwd);
+      if (!matches) {
+        setPasswordError('Wrong password. Please enter the correct password.');
+        setIsPasswordValid(false);
+        return;
+      }
+
+      // Correct password verified for login!
+      setPasswordError('');
+      setIsPasswordValid(true);
+
+      // Auto-advance focus to Captcha verification field
+      setTimeout(() => {
+        if (captchaInputRef.current && !captchaAnswer) {
+          captchaInputRef.current.focus();
+        }
+      }, 50);
+    } else {
+      // Mode === 'register': Enforce password strength (minimum 8 characters)
+      if (val.length < 8) {
+        setPasswordError('Password must be at least 8 characters long.');
+        setIsPasswordValid(false);
+      } else {
+        setPasswordError('');
+        setIsPasswordValid(true);
+      }
+
+      // If confirm password already has a value, re-check match against new password
+      if (confirmPassword) {
+        if (confirmPassword !== val) {
+          setConfirmPasswordError('Passwords do not match. Please ensure both passwords are identical.');
+          setIsConfirmPasswordValid(false);
+        } else {
+          setConfirmPasswordError('');
+          setIsConfirmPasswordValid(true);
+        }
+      }
+
+      // Auto-advance focus to Confirm Password if password requirement is met
+      if (val.length >= 8) {
+        setTimeout(() => {
+          if (confirmPasswordInputRef.current && !confirmPassword) {
+            confirmPasswordInputRef.current.focus();
+          }
+        }, 50);
+      }
+    }
+  };
+
+  // Real-time confirm password validation (Register mode)
+  const handleConfirmPasswordChange = (e) => {
+    const val = e.target.value;
+    setConfirmPassword(val);
+    setGeneralError(null);
+    setSuccessMessage(null);
+
+    if (!val) {
+      setConfirmPasswordError('');
+      setIsConfirmPasswordValid(false);
       return;
     }
 
-    // Correct password verified!
-    setPasswordError('');
-    setIsPasswordValid(true);
+    if (val !== password) {
+      setConfirmPasswordError('Passwords do not match. Please ensure both passwords are identical.');
+      setIsConfirmPasswordValid(false);
+      return;
+    }
 
-    // Auto-advance focus to Captcha verification field
+    // Passwords match!
+    setConfirmPasswordError('');
+    setIsConfirmPasswordValid(true);
+
+    // Auto-advance focus to Security Verification (CAPTCHA)
     setTimeout(() => {
       if (captchaInputRef.current && !captchaAnswer) {
         captchaInputRef.current.focus();
@@ -175,6 +287,7 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setGeneralError(null);
+    setSuccessMessage(null);
 
     if (!isEmailValid) {
       setGeneralError('Please enter a valid email address ending with @gmail.com (no capital letters or numbers).');
@@ -182,7 +295,16 @@ export default function LoginPage() {
     }
 
     if (!isPasswordValid) {
-      setGeneralError('Please enter the correct password.');
+      if (mode === 'login') {
+        setGeneralError('Please enter the correct password.');
+      } else {
+        setGeneralError('Password must be at least 8 characters long.');
+      }
+      return;
+    }
+
+    if (mode === 'register' && !isConfirmPasswordValid) {
+      setGeneralError('Passwords do not match. Please ensure both passwords are identical.');
       return;
     }
 
@@ -193,37 +315,81 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          password: password.trim(),
-          captcha_answer: captchaAnswer.trim(),
-        }),
-      });
+    if (mode === 'login') {
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            password: password.trim(),
+            captcha_answer: captchaAnswer.trim(),
+          }),
+        });
 
-      const data = await res.json();
+        const data = await res.json();
 
-      if (res.ok && data.success) {
-        router.push('/dashboard');
-        router.refresh();
-      } else {
-        let msg = data.error || 'Invalid email or password. Please try again.';
-        if (capsLockActive) {
-          msg += ' (Notice: Caps Lock is on. Passwords are case-sensitive.)';
+        if (res.ok && data.success) {
+          router.push('/dashboard');
+          router.refresh();
+        } else {
+          let msg = data.error || 'Invalid email or password. Please try again.';
+          if (capsLockActive) {
+            msg += ' (Notice: Caps Lock is on. Passwords are case-sensitive.)';
+          }
+          setGeneralError(msg);
+          refreshCaptcha();
         }
-        setGeneralError(msg);
+      } catch {
+        setGeneralError('Network communication failed. Please check server connectivity.');
         refreshCaptcha();
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      setGeneralError('Network communication failed. Please check server connectivity.');
-      refreshCaptcha();
-    } finally {
-      setLoading(false);
+    } else {
+      // mode === 'register'
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            password: password.trim(),
+            confirm_password: confirmPassword.trim(),
+            captcha_answer: captchaAnswer.trim(),
+          }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          // Cache password locally so sign in also recognizes this user's credentials
+          try {
+            localStorage.setItem(`sf_user_pwd_${email.trim().toLowerCase()}`, password.trim());
+          } catch {}
+
+          setSuccessMessage('Account created successfully! Redirecting to dashboard...');
+          setTimeout(() => {
+            router.push('/dashboard');
+            router.refresh();
+          }, 800);
+        } else {
+          setGeneralError(data.error || 'Account registration failed. Please try again.');
+          refreshCaptcha();
+        }
+      } catch {
+        setGeneralError('Network communication failed. Please check server connectivity.');
+        refreshCaptcha();
+      } finally {
+        setLoading(false);
+      }
     }
   };
+
+  const isFormSubmittable =
+    mode === 'login'
+      ? isEmailValid && isPasswordValid && captchaAnswer.trim().length > 0 && !loading
+      : isEmailValid && isPasswordValid && isConfirmPasswordValid && captchaAnswer.trim().length > 0 && !loading;
 
   return (
     <div className={styles.authViewport}>
@@ -233,7 +399,9 @@ export default function LoginPage() {
           <Link href="/" className={styles.returnLink}>
             <span>&larr;</span> Back to Home
           </Link>
-          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Secure Login</span>
+          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>
+            {mode === 'login' ? 'Secure Login' : 'New Registration'}
+          </span>
         </div>
 
         {/* Brand Area */}
@@ -246,10 +414,44 @@ export default function LoginPage() {
               Campus <span className={styles.brandTeal}>Automation</span>
             </h1>
             <p className={styles.brandSubtitle}>
-              Sign in to manage your campus email campaigns
+              {mode === 'login'
+                ? 'Sign in to manage your campus email campaigns'
+                : 'Create an account to access campus outreach'}
             </p>
           </div>
         </div>
+
+        {/* Mode Switcher Tabs */}
+        <div className={styles.modeTabs} role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'login'}
+            className={`${styles.tabBtn} ${mode === 'login' ? styles.tabBtnActive : ''}`}
+            onClick={() => handleSwitchMode('login')}
+          >
+            <LockIcon size={14} />
+            <span>Sign In</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'register'}
+            className={`${styles.tabBtn} ${mode === 'register' ? styles.tabBtnActive : ''}`}
+            onClick={() => handleSwitchMode('register')}
+          >
+            <UserIcon size={14} />
+            <span>Create New Account</span>
+          </button>
+        </div>
+
+        {/* Success Alert */}
+        {successMessage && (
+          <div className={styles.successAlert} role="status">
+            <CheckCircleIcon size={16} />
+            <span>{successMessage}</span>
+          </div>
+        )}
 
         {/* General Alerts */}
         {generalError && (
@@ -273,17 +475,26 @@ export default function LoginPage() {
           {/* Step 1: Email Address */}
           <div className={styles.fieldUnit}>
             <label className={styles.fieldLabel} htmlFor="email">
-              <span className={`${styles.stepBadge} ${isEmailValid ? styles.stepBadgeCompleted : styles.stepBadgeActive}`}>
+              <span
+                className={`${styles.stepBadge} ${
+                  isEmailValid ? styles.stepBadgeCompleted : styles.stepBadgeActive
+                }`}
+              >
                 {isEmailValid ? '✓' : '1'}
               </span>
               Email Address
             </label>
             <div className={styles.inputShell}>
-              <span className={styles.inputPrefix}><MailIcon size={16} /></span>
+              <span className={styles.inputPrefix}>
+                <MailIcon size={16} />
+              </span>
               <input
                 id="email"
+                ref={emailInputRef}
                 type="text"
-                className={`${styles.textInput} ${isEmailValid ? styles.inputValid : emailError ? styles.inputInvalid : ''}`}
+                className={`${styles.textInput} ${
+                  isEmailValid ? styles.inputValid : emailError ? styles.inputInvalid : ''
+                }`}
                 placeholder="e.g. campus@gmail.com"
                 value={email}
                 onChange={handleEmailChange}
@@ -314,10 +525,18 @@ export default function LoginPage() {
           <div className={styles.fieldUnit}>
             <div className={styles.labelBar}>
               <label className={styles.fieldLabel} htmlFor="password">
-                <span className={`${styles.stepBadge} ${isPasswordValid ? styles.stepBadgeCompleted : isEmailValid ? styles.stepBadgeActive : ''}`}>
+                <span
+                  className={`${styles.stepBadge} ${
+                    isPasswordValid
+                      ? styles.stepBadgeCompleted
+                      : isEmailValid
+                      ? styles.stepBadgeActive
+                      : ''
+                  }`}
+                >
                   {isPasswordValid ? '✓' : '2'}
                 </span>
-                Password
+                {mode === 'login' ? 'Password' : 'Create Password'}
               </label>
               {isEmailValid && (
                 <button
@@ -331,20 +550,34 @@ export default function LoginPage() {
             </div>
 
             <div className={styles.inputShell}>
-              <span className={styles.inputPrefix}><LockIcon size={16} /></span>
+              <span className={styles.inputPrefix}>
+                <LockIcon size={16} />
+              </span>
               <input
                 id="password"
                 ref={passwordInputRef}
                 type={showPassword ? 'text' : 'password'}
                 className={`${styles.textInput} ${styles.inputWithToggle} ${
-                  !isEmailValid ? styles.inputDisabled : isPasswordValid ? styles.inputValid : passwordError ? styles.inputInvalid : ''
+                  !isEmailValid
+                    ? styles.inputDisabled
+                    : isPasswordValid
+                    ? styles.inputValid
+                    : passwordError
+                    ? styles.inputInvalid
+                    : ''
                 }`}
-                placeholder={isEmailValid ? 'Enter your password' : 'Enter valid email first'}
+                placeholder={
+                  isEmailValid
+                    ? mode === 'login'
+                      ? 'Enter your password'
+                      : 'At least 8 characters'
+                    : 'Enter valid email first'
+                }
                 value={password}
                 onChange={handlePasswordChange}
                 onKeyDown={checkCapsLock}
                 onKeyUp={checkCapsLock}
-                autoComplete="current-password"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 disabled={!isEmailValid}
                 required
               />
@@ -376,95 +609,239 @@ export default function LoginPage() {
             {isPasswordValid && (
               <div className={styles.fieldSuccess}>
                 <CheckCircleIcon size={13} />
-                <span>Password verified</span>
+                <span>
+                  {mode === 'login'
+                    ? 'Password verified'
+                    : 'Password meets requirement (8+ characters)'}
+                </span>
               </div>
             )}
           </div>
 
-          {/* Step 3: Security Challenge (CAPTCHA) (Unlocked only after Password is verified) */}
-          <div className={`${styles.captchaPanel} ${!isPasswordValid ? styles.panelDisabled : ''}`}>
-            <div className={styles.labelBar}>
-              <label className={styles.fieldLabel} htmlFor="captcha">
-                <span className={`${styles.stepBadge} ${captchaAnswer.trim() ? styles.stepBadgeCompleted : isPasswordValid ? styles.stepBadgeActive : ''}`}>
-                  {captchaAnswer.trim() ? '✓' : '3'}
+          {/* Step 3 (Register Mode Only): Confirm Password */}
+          {mode === 'register' && (
+            <div className={styles.fieldUnit}>
+              <div className={styles.labelBar}>
+                <label className={styles.fieldLabel} htmlFor="confirmPassword">
+                  <span
+                    className={`${styles.stepBadge} ${
+                      isConfirmPasswordValid
+                        ? styles.stepBadgeCompleted
+                        : isPasswordValid
+                        ? styles.stepBadgeActive
+                        : ''
+                    }`}
+                  >
+                    {isConfirmPasswordValid ? '✓' : '3'}
+                  </span>
+                  Confirm Password
+                </label>
+                {isPasswordValid && (
+                  <button
+                    type="button"
+                    className={styles.toggleTextBtn}
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? 'Hide' : 'Show'}
+                  </button>
+                )}
+              </div>
+
+              <div className={styles.inputShell}>
+                <span className={styles.inputPrefix}>
+                  <LockIcon size={16} />
                 </span>
-                Security Verification
-              </label>
-              {isPasswordValid && (
-                <span className={styles.captchaMeta}>Click image to refresh</span>
+                <input
+                  id="confirmPassword"
+                  ref={confirmPasswordInputRef}
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  className={`${styles.textInput} ${styles.inputWithToggle} ${
+                    !isPasswordValid
+                      ? styles.inputDisabled
+                      : isConfirmPasswordValid
+                      ? styles.inputValid
+                      : confirmPasswordError
+                      ? styles.inputInvalid
+                      : ''
+                  }`}
+                  placeholder={
+                    isPasswordValid ? 'Re-enter your password' : 'Enter valid password first'
+                  }
+                  value={confirmPassword}
+                  onChange={handleConfirmPasswordChange}
+                  onKeyDown={checkCapsLock}
+                  onKeyUp={checkCapsLock}
+                  autoComplete="new-password"
+                  disabled={!isPasswordValid}
+                  required
+                />
+                {isPasswordValid && (
+                  <button
+                    type="button"
+                    className={styles.eyeToggleBtn}
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showConfirmPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+                  </button>
+                )}
+              </div>
+
+              {/* Confirm Password Feedback */}
+              {!isPasswordValid && (
+                <div className={styles.fieldLockedNotice}>
+                  <LockIcon size={12} />
+                  <span>Enter password first to unlock confirmation</span>
+                </div>
+              )}
+              {isPasswordValid && confirmPasswordError && (
+                <div className={styles.fieldError}>
+                  <AlertCircleIcon size={13} />
+                  <span>{confirmPasswordError}</span>
+                </div>
+              )}
+              {isConfirmPasswordValid && (
+                <div className={styles.fieldSuccess}>
+                  <CheckCircleIcon size={13} />
+                  <span>Passwords match</span>
+                </div>
               )}
             </div>
+          )}
 
-            <div className={styles.captchaRow}>
-              <img
-                src={`/api/auth/captcha?format=image&v=${captchaNonce}`}
-                alt="Security verification challenge"
-                className={styles.captchaImage}
-                width={160}
-                height={44}
-                onClick={isPasswordValid ? refreshCaptcha : undefined}
-                title="Click image to generate new verification challenge"
-              />
+          {/* Security Challenge (CAPTCHA) */}
+          {/* In Login mode: Step 3. In Register mode: Step 4 */}
+          {(() => {
+            const isUnlocked = mode === 'login' ? isPasswordValid : isConfirmPasswordValid;
+            const stepNum = mode === 'login' ? '3' : '4';
+            const isCompleted = captchaAnswer.trim().length > 0;
 
-              <button
-                type="button"
-                className={styles.refreshBtn}
-                onClick={refreshCaptcha}
-                disabled={!isPasswordValid}
-                title="Generate new verification code"
+            return (
+              <div
+                className={`${styles.captchaPanel} ${!isUnlocked ? styles.panelDisabled : ''}`}
               >
-                <RefreshCwIcon size={13} />
-                <span>Refresh</span>
-              </button>
-            </div>
+                <div className={styles.labelBar}>
+                  <label className={styles.fieldLabel} htmlFor="captcha">
+                    <span
+                      className={`${styles.stepBadge} ${
+                        isCompleted
+                          ? styles.stepBadgeCompleted
+                          : isUnlocked
+                          ? styles.stepBadgeActive
+                          : ''
+                      }`}
+                    >
+                      {isCompleted ? '✓' : stepNum}
+                    </span>
+                    Security Verification
+                  </label>
+                  {isUnlocked && (
+                    <span className={styles.captchaMeta}>Click image to refresh</span>
+                  )}
+                </div>
 
-            <div className={styles.inputShell} style={{ marginTop: '4px' }}>
-              <span className={styles.inputPrefix}><ShieldCheckIcon size={16} /></span>
-              <input
-                id="captcha"
-                ref={captchaInputRef}
-                type="text"
-                className={`${styles.textInput} ${!isPasswordValid ? styles.inputDisabled : ''}`}
-                placeholder={isPasswordValid ? 'Enter characters from image' : 'Verify password first'}
-                value={captchaAnswer}
-                onChange={(e) => {
-                  setCaptchaAnswer(e.target.value);
-                  if (generalError) setGeneralError(null);
-                }}
-                maxLength={8}
-                autoComplete="off"
-                disabled={!isPasswordValid}
-                required
-              />
-            </div>
+                <div className={styles.captchaRow}>
+                  <img
+                    src={`/api/auth/captcha?format=image&v=${captchaNonce}`}
+                    alt="Security verification challenge"
+                    className={styles.captchaImage}
+                    width={160}
+                    height={44}
+                    onClick={isUnlocked ? refreshCaptcha : undefined}
+                    title="Click image to generate new verification challenge"
+                  />
 
-            {!isPasswordValid && (
-              <div className={styles.fieldLockedNotice}>
-                <LockIcon size={12} />
-                <span>Enter correct password to unlock verification</span>
+                  <button
+                    type="button"
+                    className={styles.refreshBtn}
+                    onClick={refreshCaptcha}
+                    disabled={!isUnlocked}
+                    title="Generate new verification code"
+                  >
+                    <RefreshCwIcon size={13} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+
+                <div className={styles.inputShell} style={{ marginTop: '4px' }}>
+                  <span className={styles.inputPrefix}>
+                    <ShieldCheckIcon size={16} />
+                  </span>
+                  <input
+                    id="captcha"
+                    ref={captchaInputRef}
+                    type="text"
+                    className={`${styles.textInput} ${!isUnlocked ? styles.inputDisabled : ''}`}
+                    placeholder={
+                      isUnlocked
+                        ? 'Enter characters from image'
+                        : mode === 'login'
+                        ? 'Verify password first'
+                        : 'Confirm password first'
+                    }
+                    value={captchaAnswer}
+                    onChange={(e) => {
+                      setCaptchaAnswer(e.target.value);
+                      if (generalError) setGeneralError(null);
+                    }}
+                    maxLength={8}
+                    autoComplete="off"
+                    disabled={!isUnlocked}
+                    required
+                  />
+                </div>
+
+                {!isUnlocked && (
+                  <div className={styles.fieldLockedNotice}>
+                    <LockIcon size={12} />
+                    <span>
+                      {mode === 'login'
+                        ? 'Enter correct password to unlock verification'
+                        : 'Ensure passwords match to unlock verification'}
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
-          {/* Step 4: Submit Button */}
+          {/* Submit Action Button */}
           <button
             type="submit"
             className={styles.submitAction}
-            disabled={!isEmailValid || !isPasswordValid || !captchaAnswer.trim() || loading}
+            disabled={!isFormSubmittable}
           >
             {loading ? (
               <>
                 <RefreshCwIcon size={16} className={styles.iconSpinner} />
-                <span>Signing In...</span>
+                <span>
+                  {mode === 'login' ? 'Signing In...' : 'Creating Account...'}
+                </span>
               </>
             ) : (
               <>
-                <span>Sign In</span>
+                <span>
+                  {mode === 'login' ? 'Sign In' : 'Create Account'}
+                </span>
                 <ArrowRightIcon size={15} />
               </>
             )}
           </button>
         </form>
+
+        {/* Switch Mode Footer Link */}
+        <div className={styles.switchModeBar}>
+          <span>
+            {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
+          </span>
+          <button
+            type="button"
+            className={styles.switchModeLink}
+            onClick={() => handleSwitchMode(mode === 'login' ? 'register' : 'login')}
+          >
+            {mode === 'login' ? 'Create New Account' : 'Sign In'}
+          </button>
+        </div>
 
         {/* Security Footnote */}
         <div className={styles.cardFooter}>
