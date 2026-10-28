@@ -663,6 +663,18 @@ export function getDb() {
       for (const t of DEFAULT_TEMPLATES) {
         insertTemplate.run(t.id, t.title, t.subjectTemplate, t.bodyTemplate, t.is_default, now);
       }
+    } else {
+      // Auto-migrate legacy templates: remove promotional banners & replace with clean professional academic templates
+      const updateTpl = db.prepare(`
+        UPDATE email_templates
+        SET title = ?, subject_template = ?, body_template = ?
+        WHERE id = ? AND (body_template LIKE '%sf_creator%' OR body_template LIKE '%Campus Pass%' OR body_template LIKE '%Shortfundly Hub%' OR body_template LIKE '%Banner:%' OR body_template LIKE '%<img%')
+      `);
+      for (const t of DEFAULT_TEMPLATES) {
+        try {
+          updateTpl.run(t.title, t.subjectTemplate, t.bodyTemplate, t.id);
+        } catch {}
+      }
     }
 
     // Pre-seed default system_settings

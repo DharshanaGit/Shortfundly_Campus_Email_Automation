@@ -97,13 +97,17 @@ export async function GET(request) {
     `);
     const newlyDiscoveredColleges = parseInt(newColRes.rows[0]?.c || '0', 10);
 
-    // 5. Updated contact records from change_audit_logs
-    const updatedRes = await pool.query(`
-      SELECT COUNT(*) as c 
-      FROM change_audit_logs 
-      WHERE change_type IN ('NEW_CONTACT_DISCOVERED', 'UPDATED_ROLE');
+    // 5. Newly discovered contacts and updated contact records from change_audit_logs
+    const auditStatsRes = await pool.query(`
+      SELECT 
+        COUNT(*) filter (WHERE change_type IN ('NEW_CONTACT_DISCOVERED', 'NEW_CONTACT')) as new_contacts,
+        COUNT(*) filter (WHERE change_type = 'UPDATED_ROLE') as updated_roles,
+        COUNT(*) as total_changes
+      FROM change_audit_logs;
     `);
-    const updatedContacts = parseInt(updatedRes.rows[0]?.c || '0', 10);
+    const newlyDiscoveredContacts = parseInt(auditStatsRes.rows[0]?.new_contacts || '0', 10);
+    const updatedRoleRecords = parseInt(auditStatsRes.rows[0]?.updated_roles || '0', 10);
+    const totalAuditChanges = parseInt(auditStatsRes.rows[0]?.total_changes || '0', 10);
 
     // 6. Failed or pending crawl jobs
     const failRes = await pool.query(`
@@ -178,7 +182,7 @@ export async function GET(request) {
         last_successful_refresh: lastSuccess,
         next_scheduled_refresh: nextScheduled,
         newly_discovered_colleges: newlyDiscoveredColleges,
-        updated_contact_records: updatedContacts,
+        updated_contact_records: updatedRoleRecords + newlyDiscoveredContacts,
         missing_or_unverified_websites: missingWebsites,
         failed_or_pending_jobs: failedOrPendingJobs,
       },
@@ -195,9 +199,9 @@ export async function GET(request) {
           latest_job_id: latestJob?.id || '—',
           institutions_targeted: latestJob?.colleges_targeted || 0,
           institutions_processed: latestJob?.colleges_crawled || 0,
-          contacts_added: latestJob?.contacts_extracted || 0,
-          contacts_updated: updatedContacts,
-          records_skipped: 0,
+          contacts_added: newlyDiscoveredContacts || latestJob?.contacts_extracted || 0,
+          contacts_updated: updatedRoleRecords || 0,
+          records_skipped: Math.max(0, totalContacts - (newlyDiscoveredContacts + updatedRoleRecords)),
           crawl_failures: currentJobStatus === 'Success' ? 0 : 1,
           retry_counts: 0,
         },

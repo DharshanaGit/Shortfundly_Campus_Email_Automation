@@ -2427,15 +2427,6 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
                     <div className={styles.formattingBar}>
                       <button
                         type="button"
-                        className={`${styles.formatBtn} ${styles.formatBtnAccent}`}
-                        onClick={() => setIsImageModalOpen(true)}
-                      >
-                        <ImageIcon size={14} />
-                        <span>Insert Image / Poster / Banner</span>
-                      </button>
-
-                      <button
-                        type="button"
                         className={styles.formatBtn}
                         onClick={() => insertFormatTag('**', '**', 'Bold text')}
                       >

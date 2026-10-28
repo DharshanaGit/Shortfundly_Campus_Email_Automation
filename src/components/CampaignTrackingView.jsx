@@ -14,10 +14,36 @@ import {
   MousePointerIcon,
   GlobeIcon,
   BuildingIcon,
-  HelpCircleIcon
+  HelpCircleIcon,
+  UserIcon,
+  MailIcon,
+  CloseIcon
 } from './Icons.jsx';
 
+function formatIST(isoStr) {
+  if (!isoStr) return '—';
+  try {
+    return (
+      new Date(isoStr).toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }) + ' IST'
+    );
+  } catch {
+    return isoStr;
+  }
+}
+
 export default function CampaignTrackingView({ session }) {
+  // Top-level Navigation View: 'campaigns' (Bulk Campaigns) | 'single' (Single Mail Dispatcher)
+  const [activeReportTab, setActiveReportTab] = useState('campaigns');
+
+  // Campaigns State
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCampaignId, setActiveCampaignId] = useState(null);
@@ -34,6 +60,17 @@ export default function CampaignTrackingView({ session }) {
   // Actions state
   const [retrying, setRetrying] = useState(false);
   const [retryMessage, setRetryMessage] = useState('');
+
+  // Single Dispatcher State
+  const [singleRecords, setSingleRecords] = useState([]);
+  const [singleSummary, setSingleSummary] = useState({ total: 0, accepted: 0, opened: 0, clicked: 0, failed: 0 });
+  const [singleTotal, setSingleTotal] = useState(0);
+  const [singlePage, setSinglePage] = useState(1);
+  const [singleSearch, setSingleSearch] = useState('');
+  const [singleStatusFilter, setSingleStatusFilter] = useState('all');
+  const [loadingSingle, setLoadingSingle] = useState(false);
+  const [selectedSingleRecord, setSelectedSingleRecord] = useState(null);
+  const [retryingSingleId, setRetryingSingleId] = useState(null);
 
   // 1. Fetch campaigns list
   const fetchCampaigns = useCallback(async () => {
@@ -57,7 +94,35 @@ export default function CampaignTrackingView({ session }) {
     fetchCampaigns();
   }, [fetchCampaigns]);
 
-  // 2. Fetch active campaign details and recipients
+  // 2. Fetch Single Dispatches list
+  const fetchSingleDispatches = useCallback(async () => {
+    setLoadingSingle(true);
+    try {
+      const params = new URLSearchParams();
+      if (singleSearch.trim()) params.set('q', singleSearch.trim());
+      if (singleStatusFilter !== 'all') params.set('status', singleStatusFilter);
+      params.set('page', String(singlePage));
+      params.set('limit', '25');
+
+      const res = await fetch(`/api/tracking/single-dispatches?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSingleRecords(data.records || []);
+        setSingleSummary(data.summary || { total: 0, accepted: 0, opened: 0, clicked: 0, failed: 0 });
+        setSingleTotal(data.total || 0);
+      }
+    } catch (err) {
+      console.error('[CampaignTracking] Error fetching single dispatches:', err);
+    } finally {
+      setLoadingSingle(false);
+    }
+  }, [singleSearch, singleStatusFilter, singlePage]);
+
+  useEffect(() => {
+    fetchSingleDispatches();
+  }, [fetchSingleDispatches]);
+
+  // 3. Fetch active campaign details and recipients
   const fetchCampaignDetails = useCallback(async (campaignId) => {
     if (!campaignId) return;
     setLoadingRecipients(true);
@@ -101,10 +166,39 @@ export default function CampaignTrackingView({ session }) {
     { totalRecipients: 0, accepted: 0, failed: 0, opened: 0, clicked: 0 }
   );
 
-  // Export report
+  // Export report for active campaign
   const handleExportReport = () => {
     if (!activeCampaignId) return;
     window.open(`/api/tracking/campaigns/${activeCampaignId}/export`, '_blank');
+  };
+
+  // Export report for single dispatches
+  const handleExportSingleReport = () => {
+    window.open('/api/tracking/single-dispatches/export', '_blank');
+  };
+
+  // Retry single dispatch
+  const handleRetrySingle = async (recordId) => {
+    if (!confirm('Re-dispatch this email to the recipient via Google SMTP?')) return;
+    setRetryingSingleId(recordId);
+    try {
+      const res = await fetch('/api/tracking/single-dispatches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'retry', id: recordId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(data.message || 'Email successfully re-dispatched!');
+        fetchSingleDispatches();
+      } else {
+        alert(data.error || 'Failed to re-dispatch email.');
+      }
+    } catch {
+      alert('Network error while retrying email.');
+    } finally {
+      setRetryingSingleId(null);
+    }
   };
 
   // Retry failed emails in active campaign
@@ -138,6 +232,7 @@ export default function CampaignTrackingView({ session }) {
   const getStatusClass = (status) => {
     switch (status) {
       case 'COMPLETED': return styles.statusCompleted;
+      case 'ACCEPTED': return styles.badgeAccepted;
       case 'PROCESSING': return styles.statusProcessing;
       case 'PARTIAL': return styles.statusPartial;
       case 'FAILED': return styles.statusFailed;
@@ -160,17 +255,354 @@ export default function CampaignTrackingView({ session }) {
       <div className={styles.introSection}>
         <h1 className={styles.headline}>Campaign Tracking &amp; Delivery Telemetry</h1>
         <p className={styles.subheadline}>
-          End-to-end auditability for campus outreach dispatches: track SMTP acceptance status, failure diagnostics, pixel-based open rates, and engagement link clicks.
+          End-to-end auditability for campus outreach dispatches: track bulk campaigns and single mail dispatcher delivery status, failure diagnostics, pixel-based open rates, and engagement link clicks.
         </p>
-      </div>
 
-      {/* Deliverability & Open Tracking Disclosure */}
-      <div className={styles.disclosureBanner}>
-        <HelpCircleIcon size={20} className={styles.disclosureIcon} />
-        <div className={styles.disclosureText}>
-          <strong>Deliverability &amp; Tracking Disclosure:</strong> Emails marked <strong>&ldquo;SMTP ACCEPTED&rdquo;</strong> confirm that Google SMTP (upstream relay) validated credentials and accepted the message for transmission. Final mailbox placement is determined by the recipient&apos;s mail server antispam policies. Open tracking uses an invisible 1&times;1 pixel; open statistics may be underreported if recipient email clients enforce image blocking, Google image proxying, or Apple Mail Privacy Protection.
+        {/* View Switcher: Bulk Campaigns vs Single Mail Dispatcher */}
+        <div className={styles.topTabNav}>
+          <button
+            type="button"
+            className={`${styles.topTabBtn} ${activeReportTab === 'campaigns' ? styles.topTabBtnActive : ''}`}
+            onClick={() => setActiveReportTab('campaigns')}
+          >
+            <BarChartIcon size={16} />
+            <span>Bulk Outreach Campaigns ({campaigns.length})</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.topTabBtn} ${activeReportTab === 'single' ? styles.topTabBtnActive : ''}`}
+            onClick={() => {
+              setActiveReportTab('single');
+              fetchSingleDispatches();
+            }}
+          >
+            <UserIcon size={16} />
+            <span>Single Dispatcher Mails ({singleSummary.total || 0})</span>
+          </button>
         </div>
       </div>
+
+      {activeReportTab === 'single' ? (
+        <>
+          {/* Single Dispatcher Telemetry Disclosure */}
+          <div className={styles.disclosureBanner}>
+            <HelpCircleIcon size={20} className={styles.disclosureIcon} />
+            <div className={styles.disclosureText}>
+              <strong>Single Mail Dispatcher Tracking:</strong> Detailed delivery and engagement audit log for individual proposals dispatched to specific institutional leaders. Tracks upstream Google SMTP 250 OK relay acceptance, unique recipient opens, and delivery error diagnostics.
+            </div>
+          </div>
+
+          {/* Single Dispatcher KPI Cards */}
+          <div className={styles.statsGrid}>
+            <div className={styles.statCard}>
+              <div className={styles.statHeader}>
+                <span>Total Single Mails</span>
+                <div className={styles.statIconWrap} style={{ background: '#f1f5f9', color: '#475569' }}>
+                  <SendIcon size={16} />
+                </div>
+              </div>
+              <div className={styles.statValue}>{singleSummary.total.toLocaleString()}</div>
+              <div className={styles.statFootnote}>Individual dispatches</div>
+            </div>
+
+            <div className={styles.statCard}>
+              <div className={styles.statHeader}>
+                <span>SMTP Accepted</span>
+                <div className={styles.statIconWrap} style={{ background: '#dcfce7', color: '#16a34a' }}>
+                  <CheckCircleIcon size={16} />
+                </div>
+              </div>
+              <div className={styles.statValue} style={{ color: '#15803d' }}>
+                {singleSummary.accepted.toLocaleString()}
+              </div>
+              <div className={styles.statFootnote}>Upstream 250 OK relay</div>
+            </div>
+
+            <div className={styles.statCard}>
+              <div className={styles.statHeader}>
+                <span>Recipient Opens</span>
+                <div className={styles.statIconWrap} style={{ background: '#eff6ff', color: '#2563eb' }}>
+                  <EyeIcon size={16} />
+                </div>
+              </div>
+              <div className={styles.statValue} style={{ color: '#1d4ed8' }}>
+                {singleSummary.opened.toLocaleString()}
+              </div>
+              <div className={styles.statFootnote}>
+                {singleSummary.accepted > 0
+                  ? `${Math.round((singleSummary.opened / singleSummary.accepted) * 100)}% detection rate`
+                  : 'Tracked opens'}
+              </div>
+            </div>
+
+            <div className={styles.statCard}>
+              <div className={styles.statHeader}>
+                <span>Link Clicks</span>
+                <div className={styles.statIconWrap} style={{ background: '#fdf4ff', color: '#c026d3' }}>
+                  <MousePointerIcon size={16} />
+                </div>
+              </div>
+              <div className={styles.statValue} style={{ color: '#a21caf' }}>
+                {singleSummary.clicked.toLocaleString()}
+              </div>
+              <div className={styles.statFootnote}>Engagement clicks</div>
+            </div>
+
+            <div className={styles.statCard}>
+              <div className={styles.statHeader}>
+                <span>Failed Dispatches</span>
+                <div className={styles.statIconWrap} style={{ background: '#fee2e2', color: '#dc2626' }}>
+                  <AlertCircleIcon size={16} />
+                </div>
+              </div>
+              <div className={styles.statValue} style={{ color: '#b91c1c' }}>
+                {singleSummary.failed.toLocaleString()}
+              </div>
+              <div className={styles.statFootnote}>Eligible for 1-click retry</div>
+            </div>
+          </div>
+
+          {/* Single Dispatcher Records Table */}
+          <div className={styles.singleTableContainer}>
+            <div className={styles.singleTableHeader}>
+              <div>
+                <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                  Single Mail Dispatches ({singleTotal})
+                </h3>
+                <span style={{ fontSize: '13px', color: '#64748b' }}>
+                  Live delivery telemetry for emails dispatched directly to a single person
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className={styles.singleActionBtn}
+                  onClick={fetchSingleDispatches}
+                  title="Refresh single mail telemetry"
+                >
+                  <RefreshCwIcon size={13} className={loadingSingle ? 'spin' : ''} />
+                  <span>Refresh</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`${styles.singleActionBtn} ${styles.singleActionBtnPrimary}`}
+                  onClick={handleExportSingleReport}
+                  title="Export single mail dispatch logs to CSV"
+                >
+                  <DownloadIcon size={13} />
+                  <span>Export CSV Report</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Bar */}
+            <div className={styles.singleTableFilters}>
+              <input
+                type="text"
+                className={styles.singleSearchInput}
+                placeholder="Search single mail recipient by name, email, college, or subject..."
+                value={singleSearch}
+                onChange={(e) => {
+                  setSingleSearch(e.target.value);
+                  setSinglePage(1);
+                }}
+              />
+
+              <select
+                className={styles.singleFilterSelect}
+                value={singleStatusFilter}
+                onChange={(e) => {
+                  setSingleStatusFilter(e.target.value);
+                  setSinglePage(1);
+                }}
+              >
+                <option value="all">All Dispatch Statuses</option>
+                <option value="ACCEPTED">SMTP Accepted (Delivered)</option>
+                <option value="OPENED">Opened by Recipient</option>
+                <option value="CLICKED">Clicked Link</option>
+                <option value="FAILED">Failed / Rejected</option>
+                <option value="PENDING">Pending / Processing</option>
+              </select>
+            </div>
+
+            {/* Table */}
+            <div className={styles.tableWrapper}>
+              <table className={styles.recipientsTable}>
+                <thead>
+                  <tr>
+                    <th>Target College &amp; State</th>
+                    <th>Recipient Person &amp; Email</th>
+                    <th>Subject Line</th>
+                    <th>Status</th>
+                    <th>Engagement</th>
+                    <th>Sent At (IST)</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingSingle ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '36px' }}>
+                        <RefreshCwIcon size={20} className={styles.loadingSpinner} />
+                        <div style={{ marginTop: '8px', color: '#64748b' }}>Loading single dispatcher records...</div>
+                      </td>
+                    </tr>
+                  ) : singleRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                        No single mail dispatches match the selected search or filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    singleRecords.map((rec) => {
+                      const isAccepted = rec.status === 'ACCEPTED' || rec.delivery_status === 'SMTP_ACCEPTED';
+                      const isFailed = rec.status === 'FAILED';
+                      const isPending = rec.status === 'PENDING' || rec.status === 'PROCESSING';
+
+                      return (
+                        <tr key={rec.id}>
+                          <td>
+                            <div className={styles.collegeCol} title={rec.college_name}>
+                              {rec.college_name}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748b' }}>
+                              {rec.state || 'India'} &bull; {rec.department || 'Outreach'}
+                            </div>
+                          </td>
+
+                          <td>
+                            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13px' }}>
+                              {rec.contact_person || 'Academic Leadership'}
+                            </div>
+                            <div className={styles.emailCol}>{rec.email}</div>
+                            {rec.designation && (
+                              <div style={{ fontSize: '11px', color: '#64748b' }}>{rec.designation}</div>
+                            )}
+                          </td>
+
+                          <td>
+                            <div style={{ maxWidth: '240px', fontSize: '12.5px', color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={rec.subject}>
+                              {rec.subject}
+                            </div>
+                          </td>
+
+                          <td>
+                            {isAccepted && (
+                              <span className={`${styles.statusBadge} ${styles.badgeAccepted}`} title={rec.smtp_response || '250 OK'}>
+                                <CheckCircleIcon size={12} />
+                                <span>SMTP Accepted</span>
+                              </span>
+                            )}
+                            {isFailed && (
+                              <div>
+                                <span className={`${styles.statusBadge} ${styles.badgeFailed}`}>
+                                  <AlertCircleIcon size={12} />
+                                  <span>Failed</span>
+                                </span>
+                                <div className={styles.errorText} title={rec.error_message}>
+                                  {rec.error_message || 'Delivery error'}
+                                </div>
+                              </div>
+                            )}
+                            {isPending && (
+                              <span className={`${styles.statusBadge} ${styles.badgePending}`}>
+                                <ClockIcon size={12} />
+                                <span>{rec.status}</span>
+                              </span>
+                            )}
+                          </td>
+
+                          <td>
+                            {rec.open_count > 0 ? (
+                              <span className={`${styles.trackingIndicator} ${styles.trackedYes}`} title={`Opened at ${formatIST(rec.first_opened_at)}`}>
+                                <EyeIcon size={12} />
+                                <span>Opened ({rec.open_count}x)</span>
+                              </span>
+                            ) : (
+                              <span className={`${styles.trackingIndicator} ${styles.trackedNo}`}>
+                                <span>Unopened</span>
+                              </span>
+                            )}
+                          </td>
+
+                          <td>
+                            <div style={{ fontSize: '12px', color: '#334155', fontWeight: 500 }}>
+                              {formatIST(rec.sent_at || rec.created_at)}
+                            </div>
+                          </td>
+
+                          <td>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                className={styles.singleActionBtn}
+                                onClick={() => setSelectedSingleRecord(rec)}
+                                title="View sent email details and content"
+                              >
+                                <EyeIcon size={12} />
+                                <span>View Mail</span>
+                              </button>
+
+                              {isFailed && (
+                                <button
+                                  type="button"
+                                  className={styles.retryBtnSmall}
+                                  onClick={() => handleRetrySingle(rec.id)}
+                                  disabled={retryingSingleId === rec.id}
+                                  title="Retry dispatching this email"
+                                >
+                                  <RefreshCwIcon size={11} className={retryingSingleId === rec.id ? 'spin' : ''} />
+                                  <span>{retryingSingleId === rec.id ? 'Retrying...' : 'Retry'}</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className={styles.paginationRow}>
+              <span>
+                Showing {singleRecords.length} of {singleTotal} single dispatches
+              </span>
+              <div className={styles.pageButtons}>
+                <button
+                  type="button"
+                  className={styles.pageBtn}
+                  disabled={singlePage <= 1}
+                  onClick={() => setSinglePage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </button>
+                <span style={{ padding: '6px 10px', fontWeight: 600 }}>Page {singlePage}</span>
+                <button
+                  type="button"
+                  className={styles.pageBtn}
+                  disabled={singlePage * 25 >= singleTotal}
+                  onClick={() => setSinglePage((p) => p + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Deliverability & Open Tracking Disclosure */}
+          <div className={styles.disclosureBanner}>
+            <HelpCircleIcon size={20} className={styles.disclosureIcon} />
+            <div className={styles.disclosureText}>
+              <strong>Deliverability &amp; Tracking Disclosure:</strong> Emails marked <strong>&ldquo;SMTP ACCEPTED&rdquo;</strong> confirm that Google SMTP (upstream relay) validated credentials and accepted the message for transmission. Final mailbox placement is determined by the recipient&apos;s mail server antispam policies. Open tracking uses an invisible 1&times;1 pixel; open statistics may be underreported if recipient email clients enforce image blocking, Google image proxying, or Apple Mail Privacy Protection.
+            </div>
+          </div>
 
       {/* Celery Beat Automated Monthly Registry Synchronization Banner */}
       <div style={{
@@ -660,6 +1092,78 @@ export default function CampaignTrackingView({ session }) {
             ) : (
               <div className={styles.emptyState}>Select a campaign to view telemetry</div>
             )}
+          </div>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Selected Single Dispatch Inspection Modal */}
+      {selectedSingleRecord && (
+        <div className={styles.modalBackdrop} onClick={() => setSelectedSingleRecord(null)}>
+          <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalTitle}>
+                <MailIcon size={16} />
+                <span>Single Dispatch Details — {selectedSingleRecord.email}</span>
+              </div>
+              <button
+                type="button"
+                className={styles.modalCloseBtn}
+                onClick={() => setSelectedSingleRecord(null)}
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div className={styles.metaGrid}>
+                <div className={styles.metaItem}>
+                  <strong>Target College</strong>
+                  <span>{selectedSingleRecord.college_name}</span>
+                </div>
+                <div className={styles.metaItem}>
+                  <strong>Recipient Person</strong>
+                  <span>{selectedSingleRecord.contact_person || 'Academic Leadership'} ({selectedSingleRecord.designation || 'Representative'})</span>
+                </div>
+                <div className={styles.metaItem}>
+                  <strong>Department &amp; Location</strong>
+                  <span>{selectedSingleRecord.department || 'Outreach'} &bull; {selectedSingleRecord.state || 'India'}</span>
+                </div>
+                <div className={styles.metaItem}>
+                  <strong>Dispatched At (IST)</strong>
+                  <span>{formatIST(selectedSingleRecord.sent_at || selectedSingleRecord.created_at)}</span>
+                </div>
+                <div className={styles.metaItem}>
+                  <strong>Google SMTP Status</strong>
+                  <span style={{ color: selectedSingleRecord.status === 'ACCEPTED' ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                    {selectedSingleRecord.status === 'ACCEPTED' ? '250 OK Message Accepted' : selectedSingleRecord.status}
+                  </span>
+                </div>
+                <div className={styles.metaItem}>
+                  <strong>Upstream Message-ID</strong>
+                  <span style={{ fontSize: '11px', fontFamily: 'monospace' }}>
+                    {selectedSingleRecord.smtp_message_id || '—'}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <strong style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase' }}>Subject Line</strong>
+                <div style={{ marginTop: '4px', padding: '10px 14px', background: '#f8fafc', borderRadius: '6px', fontWeight: 600, color: '#0f172a', border: '1px solid #e2e8f0' }}>
+                  {selectedSingleRecord.subject}
+                </div>
+              </div>
+
+              <div>
+                <strong style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase' }}>Email Content Dispatched</strong>
+                <div
+                  className={styles.emailPreviewFrame}
+                  dangerouslySetInnerHTML={{ __html: selectedSingleRecord.body_html }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}

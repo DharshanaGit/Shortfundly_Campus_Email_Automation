@@ -63,29 +63,39 @@ def monthly_full_audit_and_delta_monitor():
             pages = crawler.crawl_college_website(col["website_url"])
             new_contacts = extractor.process_crawled_data(col["id"], col["college_name"], col["district"], col["state"], pages)
             
-            # Fetch existing contacts to detect delta changes
+            # Fetch existing contacts to detect delta changes (only new or updated contacts)
             with get_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute("SELECT target_email, role, contact_person, phone FROM college_contacts WHERE college_id = %s", (col["id"],))
                     existing = {row["target_email"]: row for row in cur.fetchall()}
 
+                    delta_to_upsert = []
                     for nc in new_contacts:
                         email = nc["target_email"]
                         if email not in existing:
-                            # Log newly discovered contact
+                            # 1. Newly discovered email not previously in database
                             cur.execute("""
                                 INSERT INTO change_audit_logs (college_id, change_type, old_value, new_value)
-                                VALUES (%s, 'NEW_CONTACT', NULL, %s);
+                                VALUES (%s, 'NEW_CONTACT_DISCOVERED', NULL, %s);
                             """, (col["id"], json.dumps(nc)))
-                        elif existing[email]["role"] != nc["role"]:
-                            # Log updated role
-                            cur.execute("""
-                                INSERT INTO change_audit_logs (college_id, change_type, old_value, new_value)
-                                VALUES (%s, 'UPDATED_ROLE', %s, %s);
-                            """, (col["id"], json.dumps(existing[email]), json.dumps(nc)))
+                            delta_to_upsert.append(nc)
+                        else:
+                            # 2. Existing email: check if role, person, or phone changed
+                            old = existing[email]
+                            role_changed = old.get("role") != nc.get("role")
+                            person_changed = old.get("contact_person") != nc.get("contact_person") and nc.get("contact_person")
+                            phone_changed = old.get("phone") != nc.get("phone") and nc.get("phone")
 
-            if new_contacts:
-                upsert_contacts_bulk(new_contacts)
+                            if role_changed or person_changed or phone_changed:
+                                cur.execute("""
+                                    INSERT INTO change_audit_logs (college_id, change_type, old_value, new_value)
+                                    VALUES (%s, 'UPDATED_ROLE', %s, %s);
+                                """, (col["id"], json.dumps(old), json.dumps(nc)))
+                                delta_to_upsert.append(nc)
+
+            # Upsert only genuinely new or updated contacts, leaving already loaded unchanged contacts intact
+            if delta_to_upsert:
+                upsert_contacts_bulk(delta_to_upsert)
         except Exception as e:
             print(f"[Monthly Task] Error processing college {col['college_name']}: {e}")
 

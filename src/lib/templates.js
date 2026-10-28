@@ -1,5 +1,4 @@
 import { escapeHtml } from './config.js';
-import { SF_CREATOR_PASS_BANNER, SF_CAMPUS_POSTER } from './bannerDataUris.js';
 
 export const DEFAULT_TEMPLATES = [
   {
@@ -8,72 +7,66 @@ export const DEFAULT_TEMPLATES = [
     subjectTemplate: 'Proposal for Institutional Collaboration — Academic & Skill Development at {{college_name}}',
     bodyTemplate: `<p>Dear {{contact_salutation}},</p>
 
-<p>Greetings from Campus Outreach!</p>
+<p>Greetings from Campus Outreach Initiative!</p>
 
-<div style="margin: 18px 0; text-align: center;">
-  <img src="${SF_CREATOR_PASS_BANNER}" alt="Campus Outreach Initiative" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
-</div>
-
-<p>We propose an institutional collaboration with <strong>{{college_name}}</strong>{{department_clause}} in <strong>{{state}}, {{country}}</strong> to help students develop industry-relevant skills, participate in national workshops, and explore career and innovation opportunities.</p>
+<p>We are writing to propose an official institutional collaboration with <strong>{{college_name}}</strong>{{department_clause}} in <strong>{{state}}, {{country}}</strong> to support student skill development, technical workshops, and industry career pathways.</p>
 
 <p><strong>About the Initiative:</strong><br />
-Our campus program connects students with professional masterclasses, hands-on learning, skill certifications, and industry mentorship. Students can build comprehensive portfolios, collaborate with peers across institutions, and prepare for career opportunities.</p>
+Our campus collaboration program connects premier institutions with hands-on technical masterclasses, structured learning pathways, skill certifications, and industry mentorship. Students can build demonstrative project portfolios, collaborate on real-world problem statements, and prepare for placement and internship drives.</p>
 
-<p><strong>Proposed Areas of Collaboration:</strong></p>
+<p><strong>Proposed Key Areas of Collaboration:</strong></p>
 <ul style="padding-left: 20px; line-height: 1.6;">
-  <li><strong>Student Skill Onboarding:</strong> Introduce interested students to the platform and provide guided access to learning modules.</li>
-  <li><strong>Expert Masterclasses:</strong> Conduct interactive sessions on modern technical skills, digital tools, and industry trends.</li>
-  <li><strong>Campus Hackathons &amp; Competitions:</strong> Organize structured hackathons and competitions to showcase student talent.</li>
-  <li><strong>Student Chapters:</strong> Establish a recognized Student Chapter to drive campus innovation and community leadership.</li>
+  <li><strong>Student Technical Skill Tracks:</strong> Guided orientation and self-paced modules in emerging digital and technical disciplines.</li>
+  <li><strong>Expert Faculty &amp; Student Masterclasses:</strong> Interactive technical sessions led by experienced industry practitioners.</li>
+  <li><strong>Collegiate Hackathons &amp; Innovation Drives:</strong> National competitions to spotlight student projects and practical innovation.</li>
+  <li><strong>Recognized Student Chapter:</strong> Establish an institutional chapter to cultivate student peer-learning and leadership.</li>
 </ul>
 
-<p><em>The schedule, topics, faculty support, and specific deliverables will be finalized jointly with your institution.</em></p>
+<p><em>The schedule, topics, faculty support, and specific deliverables will be finalized jointly in alignment with your academic calendar.</em></p>
 
-<p><strong>Objectives for {{institution}}:</strong></p>
+<p><strong>Institutional Benefits for {{college_name}}:</strong></p>
 <ul style="padding-left: 20px; line-height: 1.6;">
-  <li>Create structured pathways for students to develop practical and demonstrable skills.</li>
-  <li>Strengthen interdisciplinary activities and faculty-guided projects.</li>
-  <li>Showcase the institution’s emerging talent and achievements across {{state}}.</li>
+  <li>Demonstrated industry-academia partnership supporting placement readiness and NAAC/NIRF criteria.</li>
+  <li>Direct guidance from seasoned professionals across technical and management domains.</li>
+  <li>Verified credentials and national merit recognition for participating student cohorts.</li>
 </ul>
 
 <p><strong>Next Steps:</strong><br />
-We would welcome an introductory meeting with your leadership team to understand your requirements and present the program roadmap. Kindly share a convenient time and nominate a faculty coordinator to take the discussion forward.</p>
+We would welcome an introductory 15-minute briefing with your leadership team or nominated faculty coordinator to discuss how this initiative can best support students at {{college_name}}. Kindly share a convenient time to take the discussion forward.</p>
 
 <p style="margin-top: 24px;">Warm regards,<br />
 <strong>{{sender_name}}</strong><br />
-Campus Relations &amp; Outreach<br />
+Director — Institutional Outreach &amp; Partnerships<br />
 Campus Outreach Initiative</p>`,
     is_default: 1,
   },
   {
     id: 'campus-film-festival-invitation',
-    title: 'National Student Innovation & Skills Workshop 2026 (Poster & Call for Entries)',
+    title: 'National Student Innovation & Skills Workshop 2026 (Nomination Invitation)',
     subjectTemplate: 'Official Invitation: National Student Innovation & Skills Workshop 2026 — Nominate Students from {{college_name}}',
     bodyTemplate: `<p>Dear {{contact_salutation}},</p>
 
-<p>Greetings from Campus Outreach Team!</p>
+<p>Greetings from Campus Outreach Initiative!</p>
 
-<div style="margin: 20px 0; text-align: center;">
-  <img src="${SF_CAMPUS_POSTER}" alt="National Student Innovation & Skills Workshop 2026" style="max-width: 100%; height: auto; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.1);" />
-</div>
+<p>We are pleased to invite <strong>{{college_name}}</strong>, {{state}}, to nominate outstanding student cohorts and faculty coordinators for the upcoming <strong>National Student Innovation &amp; Skills Workshop 2026</strong>.</p>
 
-<p>We are delighted to invite <strong>{{college_name}}</strong>, {{state}}, to participate in the upcoming <strong>National Student Innovation &amp; Skills Workshop 2026</strong>.</p>
+<p>This initiative brings together students and educators across premier institutions to foster applied innovation, hands-on learning, and project excellence. Selected participants receive verified digital credentials, mentorship from industry experts, and project showcase opportunities.</p>
 
-<p>This initiative brings together students and educators across premier institutions to foster innovation, hands-on learning, and project excellence. Selected participants receive verified certifications, mentorship from industry experts, and project showcase opportunities.</p>
-
-<p><strong>Highlights for {{institution}}:</strong></p>
+<p><strong>Highlights for {{college_name}}:</strong></p>
 <ul style="padding-left: 20px; line-height: 1.6;">
-  <li><strong>Merit Awards &amp; Recognition:</strong> National level commendations for outstanding student projects.</li>
-  <li><strong>Industry Mentorship:</strong> Direct guidance from experienced industry practitioners and researchers.</li>
-  <li><strong>Institutional Showcase:</strong> Featured spotlight for winning institutional departments.</li>
+  <li><strong>National Merit Awards:</strong> Institutional commendations and verified certificates for outstanding projects.</li>
+  <li><strong>Industry Mentorship:</strong> Direct review and feedback from experienced technology practitioners.</li>
+  <li><strong>Departmental Spotlight:</strong> Featured showcase for top innovations from your institution across national partner channels.</li>
 </ul>
 
 <p><strong>Nomination Details:</strong><br />
-Institutions may nominate student cohorts directly through their department or faculty coordinator.</p>
+Institutions may nominate student cohorts directly through their department or faculty coordinator by replying to this communication.</p>
+
+<p>We look forward to partnering with {{college_name}} to support student innovation.</p>
 
 <p style="margin-top: 24px;">With highest regards,<br />
 <strong>{{sender_name}}</strong><br />
-Program Director | Campus Outreach<br />
+Program Director — Academic Collaborations<br />
 Campus Outreach Initiative</p>`,
     is_default: 0,
   },
@@ -83,24 +76,21 @@ Campus Outreach Initiative</p>`,
     subjectTemplate: 'Campus Student Chapter Invitation — Partnering with {{college_name}}',
     bodyTemplate: `<p>Dear {{contact_salutation}},</p>
 
-<p>Greetings from Campus Outreach!</p>
+<p>Greetings from Campus Outreach Initiative!</p>
 
-<p>We are excited to invite <strong>{{college_name}}</strong>{{department_clause}} in <strong>{{state}}, {{country}}</strong> to establish an official <strong>Student Innovation &amp; Outreach Chapter</strong>.</p>
+<p>We are excited to invite <strong>{{college_name}}</strong>{{department_clause}} in <strong>{{state}}, {{country}}</strong> to establish an official <strong>Student Innovation &amp; Outreach Chapter</strong> on campus.</p>
 
-<div style="margin: 16px 0; text-align: center;">
-  <img src="${SF_CREATOR_PASS_BANNER}" alt="Student Innovation Chapter" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" />
-</div>
-
-<p>Student Chapter Leads receive direct mentorship, hands-on leadership experience, and resources to organize workshops, hackathons, and webinars on campus.</p>
+<p>A Student Chapter serves as a campus innovation and peer-learning hub, providing nominated student leads with leadership mentorship, hands-on event management experience, and workshop resources.</p>
 
 <p><strong>Benefits for {{college_name}}:</strong></p>
 <ul style="padding-left: 20px; line-height: 1.6;">
-  <li>Free workshops and digital certifications for nominated students.</li>
-  <li>Quarterly webinars with industry leaders and technical innovators.</li>
-  <li>Annual leadership certificates for student coordinators and faculty advisors.</li>
+  <li>Complimentary technical masterclasses and verified skill certificates for nominated students.</li>
+  <li>Quarterly interactive sessions with industry leaders and technical innovators.</li>
+  <li>Official leadership certificates for student coordinators and faculty advisors.</li>
+  <li>Priority access to inter-collegiate competitions and hackathons.</li>
 </ul>
 
-<p>We look forward to connecting with your department to nominate student leads.</p>
+<p>We would be pleased to share the formal Chapter framework and discuss nominated student leads at your convenience.</p>
 
 <p style="margin-top: 24px;">Warm regards,<br />
 <strong>{{sender_name}}</strong><br />
@@ -112,17 +102,16 @@ Campus Outreach Initiative</p>`,
 
 /**
  * Converts rich HTML email templates into clean, editable Jinja-templated plain text.
- * Strips raw HTML tags while preserving paragraphs, bolding, lists, and Jinja variables.
+ * Strips raw HTML tags and promotional images while preserving paragraphs, bolding, lists, and Jinja variables.
  */
 export function htmlToJinjaText(html) {
   if (!html) return '';
   let text = String(html);
 
-  // Convert banner images cleanly into editable Jinja banner tags: [Banner: title]
-  text = text.replace(/<div[^>]*>\s*<img[^>]*alt="([^"]*)"[^>]*>\s*<\/div>/gi, '\n\n[Banner: $1]\n\n');
-  text = text.replace(/<img[^>]*alt="([^"]*)"[^>]*>/gi, '\n\n[Banner: $1]\n\n');
-  text = text.replace(/<div[^>]*>\s*<img[^>]*>\s*<\/div>/gi, '\n\n[Banner: Campus Outreach Initiative]\n\n');
-  text = text.replace(/<img[^>]*>/gi, '\n\n[Banner: Campus Outreach Initiative]\n\n');
+  // Strip all images and promotional banners cleanly
+  text = text.replace(/<div[^>]*>\s*<img[^>]*>\s*<\/div>/gi, '');
+  text = text.replace(/<img[^>]*>/gi, '');
+  text = text.replace(/\[Banner(?::\s*[^\]]*)?\]/gi, '');
 
   // Convert list items to bullet lines
   text = text.replace(/<li[^>]*>(.*?)<\/li>/gis, (m, c) => `• ${c.trim()}\n`);
@@ -163,34 +152,25 @@ export function htmlToJinjaText(html) {
  * Ensures text line breaks, paragraphs, and indentation are formatted into standard HTML
  * preserving exact visual alignment across all email clients (Gmail, Outlook, Yahoo) and web preview panes.
  * Converts markdown links, bold emphasis, and bullet lists to genuine HTML elements.
- * Also self-heals broken banner image links with reliable embedded data URIs.
+ * Completely strips any promotional images or banner tags to guarantee 100% professional delivery.
  */
 export function formatBodyToHtml(textOrHtml) {
   if (!textOrHtml) return '';
 
   let processed = String(textOrHtml);
 
-  // Self-heal legacy image links to always use embedded data URIs
-  processed = processed.replace(/\/uploads\/email-images\/sf_creator_pass_banner\.svg/g, SF_CREATOR_PASS_BANNER);
-  processed = processed.replace(/\/uploads\/email-images\/sf_campus_festival_poster\.svg/g, SF_CAMPUS_POSTER);
+  // Strip legacy promotional images and banner tags to prevent spam flagging
+  processed = processed.replace(/\/uploads\/email-images\/[^\s"'>]+/gi, '');
+  processed = processed.replace(/\[Banner(?::\s*[^\]]*)?\]/gi, '');
+  processed = processed.replace(/<div[^>]*>\s*<img[^>]*sf_creator_pass[^>]*>\s*<\/div>/gi, '');
+  processed = processed.replace(/<img[^>]*sf_creator_pass[^>]*>/gi, '');
+  processed = processed.replace(/<img[^>]*data:image\/svg\+xml;base64[^>]*>/gi, '');
 
   // Check if string is already semantic HTML (contains <p> or <ul>)
   const isAlreadyHtml = /<p\b[^>]*>/i.test(processed) || /<ul\b[^>]*>/i.test(processed);
 
   if (isAlreadyHtml) {
-    // Replace any banner placeholder inside existing HTML
-    return processed.replace(
-      /\[Banner(?::\s*([^\]]*))?\]/gi,
-      (m, alt) => {
-        const bannerAlt = (alt || 'Campus Outreach Initiative').trim();
-        const isPoster =
-          bannerAlt.toLowerCase().includes('workshop') ||
-          bannerAlt.toLowerCase().includes('poster') ||
-          bannerAlt.toLowerCase().includes('festival');
-        const bannerSrc = isPoster ? SF_CAMPUS_POSTER : SF_CREATOR_PASS_BANNER;
-        return `<div style="margin: 18px 0; text-align: center;"><img src="${bannerSrc}" alt="${bannerAlt}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" /></div>`;
-      }
-    );
+    return processed;
   }
 
   // Convert markdown links: [text](url) -> <a href="url">text</a>
@@ -209,24 +189,12 @@ export function formatBodyToHtml(textOrHtml) {
   processed = processed.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
   processed = processed.replace(/(^|[\s(])\*([^*\n]+)\*([\s.,!?)]|$)/gm, '$1<strong>$2</strong>$3');
 
-  // Convert plain text with double newlines into semantic paragraphs, handling bullet lines and banners
+  // Convert plain text with double newlines into semantic paragraphs, handling bullet lines
   const paragraphs = processed.split(/\r?\n\s*\r?\n/);
   return paragraphs
     .map((para) => {
       const trimmed = para.trim();
       if (!trimmed) return '';
-
-      // Check if this paragraph is a banner placeholder: [Banner: ...]
-      const bannerMatch = trimmed.match(/^\[Banner(?::\s*([^\]]*))?\]$/i);
-      if (bannerMatch) {
-        const bannerAlt = (bannerMatch[1] || 'Campus Outreach Initiative').trim();
-        const isPoster =
-          bannerAlt.toLowerCase().includes('workshop') ||
-          bannerAlt.toLowerCase().includes('poster') ||
-          bannerAlt.toLowerCase().includes('festival');
-        const bannerSrc = isPoster ? SF_CAMPUS_POSTER : SF_CREATOR_PASS_BANNER;
-        return `<div style="margin: 18px 0; text-align: center;"><img src="${bannerSrc}" alt="${bannerAlt}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" /></div>`;
-      }
 
       // Check if paragraph consists of bullet list items
       const lines = trimmed.split(/\r?\n/);
@@ -242,21 +210,7 @@ export function formatBodyToHtml(textOrHtml) {
         return `<ul style="padding-left: 20px; line-height: 1.6; margin: 12px 0; color: #111827;">\n${lis}\n</ul>`;
       }
 
-      // Replace any inline banner tags within paragraph
-      let withBanners = trimmed.replace(
-        /\[Banner(?::\s*([^\]]*))?\]/gi,
-        (m, alt) => {
-          const bannerAlt = (alt || 'Campus Outreach Initiative').trim();
-          const isPoster =
-            bannerAlt.toLowerCase().includes('workshop') ||
-            bannerAlt.toLowerCase().includes('poster') ||
-            bannerAlt.toLowerCase().includes('festival');
-          const bannerSrc = isPoster ? SF_CAMPUS_POSTER : SF_CREATOR_PASS_BANNER;
-          return `<div style="margin: 18px 0; text-align: center;"><img src="${bannerSrc}" alt="${bannerAlt}" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);" /></div>`;
-        }
-      );
-
-      const withLineBreaks = withBanners.replace(/\r?\n/g, '<br />\n');
+      const withLineBreaks = trimmed.replace(/\r?\n/g, '<br />\n');
       return `<p style="margin: 0 0 16px 0; line-height: 1.65; color: #111827;">${withLineBreaks}</p>`;
     })
     .filter(Boolean)

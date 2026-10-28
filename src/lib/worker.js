@@ -138,9 +138,9 @@ function prepareEmailContent(job) {
     unsubscribeUrl: `mailto:${config.FROM_EMAIL}?subject=Unsubscribe%20${encodeURIComponent(job.email)}`
   });
 
-  // 4. Open tracking pixel: inject before </body>
+  // 4. Open tracking pixel: inject before </body> ONLY if using secure public HTTPS
   const trackOpens = getSystemSetting('track_opens_default', '1') === '1';
-  if (trackOpens && trackingToken) {
+  if (trackOpens && trackingToken && appUrl.startsWith('https://')) {
     const pixelUrl = `${appUrl}/api/tracking/open/${trackingToken}`;
     const pixelTag = `<img src="${pixelUrl}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;border:none;outline:none;" />`;
     if (finalHtml.includes('</body>')) {
@@ -225,24 +225,30 @@ export async function processOutreachJob(outreachId, userEmail = 'system') {
     const smtpUser = (smtp.user || '').trim();
     const isGmailUser = smtpUser.toLowerCase().endsWith('@gmail.com') || smtpUser.toLowerCase().endsWith('@googlemail.com');
 
+    // SPF & DMARC alignment: For Gmail SMTP, From and Reply-To must align with authenticated sender address
     const effectiveFromEmail = isGmailUser ? smtpUser : (smtp.from_email || config.FROM_EMAIL || smtpUser);
-    const officialReplyTo = (smtp.from_email || config.FROM_EMAIL || 'campus@shortfundly.com').trim();
+    const effectiveReplyTo = isGmailUser ? effectiveFromEmail : (smtp.reply_to || smtp.from_email || config.FROM_EMAIL || effectiveFromEmail).trim();
 
     const plainText = job.body_text || htmlToPlainText(job.body_html);
+
+    // Generate standard RFC-compliant Message-ID and headers
+    const domain = isGmailUser ? 'gmail.com' : (effectiveFromEmail.split('@')[1] || 'outreach.org');
+    const messageId = `<${Date.now()}.${crypto.randomBytes(8).toString('hex')}@${domain}>`;
 
     const mailOptions = {
       from: `"${fromName}" <${effectiveFromEmail}>`,
       to: job.email,
-      replyTo: `"${fromName}" <${officialReplyTo}>`,
+      replyTo: `"${fromName}" <${effectiveReplyTo}>`,
       subject: job.subject,
       text: plainText,
       html: fullHtml,
       headers: {
-        'List-Unsubscribe': `<mailto:${officialReplyTo}?subject=Unsubscribe>`,
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        'Message-ID': messageId,
+        'Date': new Date().toUTCString(),
+        'MIME-Version': '1.0',
+        'X-Priority': '3',
+        'Importance': 'Normal',
         'X-Entity-Ref-ID': outreachId,
-        'X-Mailer': 'Campus Email Automation Platform v2.0',
-        'Feedback-ID': `campus-outreach:platform:${smtpUser}`,
       },
     };
 

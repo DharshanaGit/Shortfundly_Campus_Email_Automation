@@ -561,15 +561,6 @@ export default function TemplateManager({ session, onTemplatesUpdated }) {
                   <div className={styles.formattingBar}>
                     <button
                       type="button"
-                      className={`${styles.formatBtn} ${styles.formatBtnAccent}`}
-                      onClick={() => insertAtCursor('\n[Banner: Campus Outreach Initiative]\n')}
-                    >
-                      <ImageIcon size={14} />
-                      <span>Insert Outreach Banner</span>
-                    </button>
-
-                    <button
-                      type="button"
                       className={styles.formatBtn}
                       onClick={() => insertFormatTag('**', '**', 'bold text')}
                     >

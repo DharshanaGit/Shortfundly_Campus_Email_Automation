@@ -191,6 +191,51 @@ def upsert_contacts_bulk(contacts_list):
             if not sanitized_contacts:
                 return 0
 
+            # Delta Analysis: Detect genuine new and updated emails vs already loaded records
+            existing_emails_set = set()
+            existing_records = {}
+            try:
+                email_list = [c['target_email'] for c in sanitized_contacts]
+                cur.execute("SELECT target_email, role, contact_person, phone FROM college_contacts WHERE target_email = ANY(%s);", (email_list,))
+                for row in cur.fetchall():
+                    em = row['target_email'].strip().lower()
+                    existing_emails_set.add(em)
+                    existing_records[em] = row
+            except Exception as e:
+                print(f"[DB Delta Audit] Pre-check note: {e}")
+
+            new_discovered = 0
+            updated_roles = 0
+            skipped_count = 0
+
+            for c in sanitized_contacts:
+                em = c['target_email']
+                if em not in existing_emails_set:
+                    new_discovered += 1
+                    try:
+                        cur.execute("""
+                            INSERT INTO change_audit_logs (college_id, change_type, old_value, new_value)
+                            VALUES (%s, 'NEW_CONTACT_DISCOVERED', NULL, %s);
+                        """, (c.get('college_id'), json.dumps(c)))
+                    except Exception:
+                        pass
+                else:
+                    old = existing_records.get(em, {})
+                    role_changed = old.get('role') != c.get('role')
+                    person_changed = old.get('contact_person') != c.get('contact_person') and c.get('contact_person')
+                    phone_changed = old.get('phone') != c.get('phone') and c.get('phone')
+                    if role_changed or person_changed or phone_changed:
+                        updated_roles += 1
+                        try:
+                            cur.execute("""
+                                INSERT INTO change_audit_logs (college_id, change_type, old_value, new_value)
+                                VALUES (%s, 'UPDATED_ROLE', %s, %s);
+                            """, (c.get('college_id'), json.dumps(old), json.dumps(c)))
+                        except Exception:
+                            pass
+                    else:
+                        skipped_count += 1
+
             query = """
             INSERT INTO college_contacts (
                 college_id, college_name, target_email, role, district_location,
@@ -213,6 +258,7 @@ def upsert_contacts_bulk(contacts_list):
                 updated_at = CURRENT_TIMESTAMP;
             """
             cur.executemany(query, sanitized_contacts)
+            print(f"[DB Manager] Delta sync finished: {new_discovered} newly discovered, {updated_roles} updated, {skipped_count} already loaded (skipped duplicate work).")
             return len(sanitized_contacts)
 
 def get_contacts_by_state(state_name, role=None, limit=5000):
