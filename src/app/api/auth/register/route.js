@@ -145,9 +145,7 @@ export async function POST(request) {
       can_send: canSendVal,
     };
 
-    // 6. Generate authenticated session token and cookie
-    const token = await createSessionToken(newUser);
-
+    // 6. User account is securely stored in database. Return success for user to proceed to login.
     const response = NextResponse.json({
       success: true,
       user: {
@@ -156,17 +154,7 @@ export async function POST(request) {
         role,
         can_send: Boolean(canSendVal),
       },
-      message: 'Account created successfully! Welcome to Campus Automation.',
-    });
-
-    response.cookies.set({
-      name: COOKIE_NAME,
-      value: token,
-      httpOnly: true,
-      secure: config.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: config.SESSION_MAX_AGE_SEC,
+      message: 'Your account has been successfully created! Proceed to login.',
     });
 
     applySecurityHeaders(response.headers);

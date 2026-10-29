@@ -95,7 +95,9 @@ export default function LoginPage() {
   const handleSwitchMode = (newMode) => {
     setMode(newMode);
     setGeneralError(null);
-    setSuccessMessage(null);
+    if (!successMessage?.includes('successfully created')) {
+      setSuccessMessage(null);
+    }
     setPassword('');
     setPasswordError('');
     setIsPasswordValid(false);
@@ -186,7 +188,9 @@ export default function LoginPage() {
     const val = e.target.value;
     setEmail(val);
     setGeneralError(null);
-    setSuccessMessage(null);
+    if (!successMessage?.includes('successfully created')) {
+      setSuccessMessage(null);
+    }
 
     if (passwordAdvanceTimerRef.current) {
       clearTimeout(passwordAdvanceTimerRef.current);
@@ -216,7 +220,9 @@ export default function LoginPage() {
     const val = e.target.value;
     setPassword(val);
     setGeneralError(null);
-    setSuccessMessage(null);
+    if (!successMessage?.includes('successfully created')) {
+      setSuccessMessage(null);
+    }
 
     if (passwordCheckTimerRef.current) {
       clearTimeout(passwordCheckTimerRef.current);
@@ -355,7 +361,9 @@ export default function LoginPage() {
     const val = e.target.value;
     setConfirmPassword(val);
     setGeneralError(null);
-    setSuccessMessage(null);
+    if (!successMessage?.includes('successfully created')) {
+      setSuccessMessage(null);
+    }
 
     if (passwordAdvanceTimerRef.current) {
       clearTimeout(passwordAdvanceTimerRef.current);
@@ -480,16 +488,34 @@ export default function LoginPage() {
         const data = await res.json();
 
         if (res.ok && data.success) {
-          // Cache password locally for convenient access
+          const registeredEmail = email.trim().toLowerCase();
+          const registeredPassword = password.trim();
+
+          // Cache password locally for instant client-side validation
           try {
-            localStorage.setItem(`sf_user_pwd_${email.trim().toLowerCase()}`, password.trim());
+            localStorage.setItem(`sf_user_pwd_${registeredEmail}`, registeredPassword);
           } catch {}
 
-          setSuccessMessage('Account created successfully! Logging you into dashboard...');
+          // Switch to Sign In mode
+          setMode('login');
+          setEmail(registeredEmail);
+          setIsEmailValid(true);
+          setEmailError('');
+          setPassword('');
+          setIsPasswordValid(false);
+          setPasswordError('');
+          setConfirmPassword('');
+          setIsConfirmPasswordValid(false);
+          setCaptchaAnswer('');
+          refreshCaptcha();
+          setGeneralError(null);
+          setSuccessMessage('Your account has been successfully created! Proceed to login.');
+
           setTimeout(() => {
-            router.push('/dashboard');
-            router.refresh();
-          }, 800);
+            if (passwordInputRef.current) {
+              passwordInputRef.current.focus();
+            }
+          }, 350);
         } else {
           setGeneralError(data.error || 'Account registration failed. Please try again.');
           refreshCaptcha();
@@ -566,8 +592,15 @@ export default function LoginPage() {
         {/* Success Alert */}
         {successMessage && (
           <div className={styles.successAlert} role="status">
-            <CheckCircleIcon size={16} />
-            <span>{successMessage}</span>
+            <CheckCircleIcon size={16} style={{ color: '#16a34a', flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
+              <span style={{ fontWeight: 700, fontSize: '12.5px', color: '#14532d' }}>{successMessage}</span>
+              {mode === 'login' && (
+                <span style={{ fontSize: '11.5px', color: '#15803d' }}>
+                  Please enter your password and complete the security verification below to proceed to your dashboard.
+                </span>
+              )}
+            </div>
           </div>
         )}
 
