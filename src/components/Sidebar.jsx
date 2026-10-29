@@ -15,8 +15,8 @@ import {
 } from './Icons';
 
 export default function Sidebar({ activeTab, setActiveTab, session, onLogout }) {
-  const role = session?.role || 'manager';
-  const canSend = session?.role === 'admin' || session?.role === 'team_lead' || Boolean(session?.can_send);
+  const role = 'admin'; // All users have full admin privileges
+  const canSend = true;
 
   const getRoleClass = (r) => {
     if (r === 'admin') return styles.roleAdmin;

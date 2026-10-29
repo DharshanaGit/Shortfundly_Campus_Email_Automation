@@ -21,8 +21,8 @@ import EmailImageManagerModal from './EmailImageManagerModal.jsx';
 import { renderTemplate, validateTemplatePlaceholders } from '@/lib/templates.js';
 
 export default function CampaignWorkflowSender({ templates = [], session, onCampaignFinished, onNavigateTracking }) {
-  const canSend = session ? (session.role === 'admin' || session.role === 'team_lead' || Boolean(session.can_send)) : true;
-  const isTemplateManager = session ? (session.role === 'admin' || session.role === 'team_lead') : true;
+  const canSend = true; // Full sending permissions for all users
+  const isTemplateManager = true; // Full template management for all users
 
   // Active Step (1 to 10)
   const [currentStep, setCurrentStep] = useState(1);

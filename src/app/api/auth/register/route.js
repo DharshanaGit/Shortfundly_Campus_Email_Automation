@@ -112,11 +112,11 @@ export async function POST(request) {
       );
     }
 
-    // 5. Create new user record
+    // 5. Create new user record with full administrator privileges (zero restrictions)
     const userId = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
     const passwordHash = bcrypt.hashSync(password.trim(), 10);
     const now = new Date().toISOString();
-    const role = 'manager';
+    const role = 'admin'; // Full unrestricted administrative access for all features
     const canSendVal = 1;
 
     try {

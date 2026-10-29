@@ -14,7 +14,7 @@ import {
 } from './Icons';
 
 export default function SettingsView({ session }) {
-  const isAdmin = session?.role === 'admin';
+  const isAdmin = true; // Full access for all users (no restrictions)
   const [activeSubTab, setActiveSubTab] = useState('smtp');
   const [feedback, setFeedback] = useState(null);
 

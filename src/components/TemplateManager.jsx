@@ -52,8 +52,8 @@ export default function TemplateManager({ session, onTemplatesUpdated }) {
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [attachmentError, setAttachmentError] = useState('');
 
-  const canManage = session?.role === 'admin' || session?.role === 'team_lead';
-  const isAdmin = session?.role === 'admin';
+  const canManage = true;
+  const isAdmin = true;
 
   const loadTemplates = async () => {
     try {

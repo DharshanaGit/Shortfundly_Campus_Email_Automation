@@ -15,7 +15,7 @@ import {
 } from './Icons.jsx';
 
 export default function ManualEntryForm({ templates = [], onOpenReview, duplicateNotice = null, user = null }) {
-  const canSend = user ? (user.role === 'admin' || user.role === 'team_lead' || Boolean(user.can_send)) : true;
+  const canSend = true; // Full sending permissions for all users
   const [availableTemplates, setAvailableTemplates] = useState(templates);
   const [formData, setFormData] = useState({
     college_name: '',

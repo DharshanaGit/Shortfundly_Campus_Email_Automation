@@ -334,7 +334,7 @@ function parseRaw2DToObjects(raw2d) {
 }
 
 export default function BulkEmailSender({ templates = [], session, onCampaignFinished }) {
-  const canSend = session ? session.role === 'admin' || session.role === 'team_lead' || Boolean(session.can_send) : true;
+  const canSend = true; // Full sending permissions for all users (no restrictions)
   const fileInputRef = useRef(null);
 
   // File & Loading State
