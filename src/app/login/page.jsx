@@ -64,6 +64,9 @@ export default function LoginPage() {
   const submitBtnRef = useRef(null);
   const passwordCheckTimerRef = useRef(null);
   const passwordAdvanceTimerRef = useRef(null);
+  const passwordAbortControllerRef = useRef(null);
+  const verifySeqRef = useRef(0);
+  const currentPasswordValRef = useRef('');
 
   useEffect(() => {
     setCaptchaNonce(Date.now());
@@ -73,6 +76,7 @@ export default function LoginPage() {
     return () => {
       if (passwordCheckTimerRef.current) clearTimeout(passwordCheckTimerRef.current);
       if (passwordAdvanceTimerRef.current) clearTimeout(passwordAdvanceTimerRef.current);
+      if (passwordAbortControllerRef.current) passwordAbortControllerRef.current.abort();
     };
   }, []);
 
@@ -107,6 +111,12 @@ export default function LoginPage() {
     if (passwordAdvanceTimerRef.current) {
       clearTimeout(passwordAdvanceTimerRef.current);
     }
+    if (passwordAbortControllerRef.current) {
+      passwordAbortControllerRef.current.abort();
+      passwordAbortControllerRef.current = null;
+    }
+    verifySeqRef.current += 1;
+    currentPasswordValRef.current = '';
 
     // Re-validate existing email if present
     if (email) {
@@ -214,6 +224,12 @@ export default function LoginPage() {
     if (passwordAdvanceTimerRef.current) {
       clearTimeout(passwordAdvanceTimerRef.current);
     }
+    if (passwordAbortControllerRef.current) {
+      passwordAbortControllerRef.current.abort();
+      passwordAbortControllerRef.current = null;
+    }
+    verifySeqRef.current += 1;
+    currentPasswordValRef.current = '';
 
     if (!val) {
       setPasswordError('');
@@ -223,6 +239,7 @@ export default function LoginPage() {
 
     if (mode === 'login') {
       const normalizedEmail = email.trim().toLowerCase();
+      const trimmed = val.trim();
       let localUserPwd = null;
       try {
         localUserPwd = localStorage.getItem(`sf_user_pwd_${normalizedEmail}`);
@@ -230,54 +247,70 @@ export default function LoginPage() {
 
       // Instant match against accepted system passwords or cached registered user password
       const isInstantMatch =
-        ACCEPTED_PASSWORDS.includes(val) || (localUserPwd && val === localUserPwd);
+        ACCEPTED_PASSWORDS.includes(val) ||
+        ACCEPTED_PASSWORDS.includes(trimmed) ||
+        (localUserPwd && (val === localUserPwd || trimmed === localUserPwd));
 
       if (isInstantMatch) {
         setPasswordError('');
         setIsPasswordValid(true);
 
-        // Password matched! Allow user to finish typing without stealing focus,
-        // or auto-advance gently after 900ms idle if no more keystrokes
+        // When correct password entered: show correct and then move next
         passwordAdvanceTimerRef.current = setTimeout(() => {
           if (captchaInputRef.current) {
             captchaInputRef.current.focus();
           }
-        }, 900);
+        }, 250);
         return;
       }
 
-      // If not instant match, immediately show wrong password error and keep Captcha locked
+      // If not instant match, show error when wrong password
       setPasswordError('Wrong password. Please enter the correct password.');
       setIsPasswordValid(false);
 
       // Check database credentials with backend API (for registered users)
-      if (val.length >= 4) {
+      if (trimmed.length >= 4) {
+        const queryPassword = val;
         passwordCheckTimerRef.current = setTimeout(async () => {
+          if (thisSeq !== verifySeqRef.current || currentPasswordValRef.current !== queryPassword) {
+            return;
+          }
+
+          const controller = new AbortController();
+          passwordAbortControllerRef.current = controller;
+
           try {
             const res = await fetch('/api/auth/verify-password', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: normalizedEmail, password: val }),
+              body: JSON.stringify({ email: normalizedEmail, password: queryPassword }),
+              signal: controller.signal,
             });
             const data = await res.json();
-            if (data && data.matched) {
-              setPasswordError('');
-              setIsPasswordValid(true);
 
-              passwordAdvanceTimerRef.current = setTimeout(() => {
-                if (captchaInputRef.current) {
-                  captchaInputRef.current.focus();
-                }
-              }, 900);
-            } else {
+            // Strictly ensure input has not changed before updating validation state
+            if (thisSeq === verifySeqRef.current && currentPasswordValRef.current === queryPassword) {
+              if (data && data.matched) {
+                setPasswordError('');
+                setIsPasswordValid(true);
+
+                passwordAdvanceTimerRef.current = setTimeout(() => {
+                  if (captchaInputRef.current) {
+                    captchaInputRef.current.focus();
+                  }
+                }, 250);
+              } else {
+                setPasswordError('Wrong password. Please enter the correct password.');
+                setIsPasswordValid(false);
+              }
+            }
+          } catch (err) {
+            if (err.name !== 'AbortError' && thisSeq === verifySeqRef.current && currentPasswordValRef.current === queryPassword) {
               setPasswordError('Wrong password. Please enter the correct password.');
               setIsPasswordValid(false);
             }
-          } catch {
-            setPasswordError('Wrong password. Please enter the correct password.');
-            setIsPasswordValid(false);
           }
-        }, 150);
+        }, 120);
       }
     } else {
       // Mode === 'register': Enforce password strength (minimum 8 characters)
@@ -712,7 +745,7 @@ export default function LoginPage() {
                   <CheckCircleIcon size={13} />
                   <span>
                     {mode === 'login'
-                      ? 'Password verified ✓'
+                      ? 'Correct password ✓'
                       : 'Password meets requirement (8+ characters)'}
                   </span>
                 </div>
