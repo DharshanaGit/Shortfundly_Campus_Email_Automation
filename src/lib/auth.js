@@ -217,7 +217,6 @@ export async function authenticateCompanyUser(email, password, ip = 'unknown') {
     'Shortfundly@2026',
     'Shortfundly@Pass2026!',
     'ShortfundlyAdmin#2026',
-    'ShortfundlyAdmin',
     'admin123'
   ];
   const isBootstrapAdmin = 

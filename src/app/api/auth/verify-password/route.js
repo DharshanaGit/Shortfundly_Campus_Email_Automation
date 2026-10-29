@@ -7,7 +7,6 @@ import { applySecurityHeaders } from '@/lib/security.js';
 const BOOTSTRAP_PASSWORDS = [
   'Shortfundly@2026',
   'ShortfundlyAdmin#2026',
-  'ShortfundlyAdmin',
   'Shortfundly@Pass2026!',
   'admin123',
   config.ADMIN_PASSWORD,

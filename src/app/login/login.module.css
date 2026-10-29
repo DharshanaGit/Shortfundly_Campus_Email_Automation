@@ -493,6 +493,41 @@
   animation: fadeIn 0.15s ease-in-out;
 }
 
+.passwordVerifiedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  gap: 8px;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.confirmNextBtn {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.25);
+}
+
+.confirmNextBtn:hover {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(5, 150, 105, 0.35);
+}
+
+.confirmNextBtn:active {
+  transform: translateY(0);
+}
+
 .fieldLockedNotice {
   color: #64748b;
   font-size: 11px;

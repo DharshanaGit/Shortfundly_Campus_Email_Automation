@@ -22,7 +22,6 @@ import {
 const ACCEPTED_PASSWORDS = [
   'Shortfundly@2026',
   'ShortfundlyAdmin#2026',
-  'ShortfundlyAdmin',
   'Shortfundly@Pass2026!',
   'admin123',
 ];
@@ -64,11 +63,17 @@ export default function LoginPage() {
   const captchaInputRef = useRef(null);
   const submitBtnRef = useRef(null);
   const passwordCheckTimerRef = useRef(null);
+  const passwordAdvanceTimerRef = useRef(null);
 
   useEffect(() => {
     setCaptchaNonce(Date.now());
     // Invalidate any residual session so login is required every time
     fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+
+    return () => {
+      if (passwordCheckTimerRef.current) clearTimeout(passwordCheckTimerRef.current);
+      if (passwordAdvanceTimerRef.current) clearTimeout(passwordAdvanceTimerRef.current);
+    };
   }, []);
 
   const refreshCaptcha = () => {
@@ -98,6 +103,9 @@ export default function LoginPage() {
 
     if (passwordCheckTimerRef.current) {
       clearTimeout(passwordCheckTimerRef.current);
+    }
+    if (passwordAdvanceTimerRef.current) {
+      clearTimeout(passwordAdvanceTimerRef.current);
     }
 
     // Re-validate existing email if present
@@ -170,15 +178,25 @@ export default function LoginPage() {
     setGeneralError(null);
     setSuccessMessage(null);
 
+    if (passwordAdvanceTimerRef.current) {
+      clearTimeout(passwordAdvanceTimerRef.current);
+    }
+
+    // If email changes, re-evaluate password validity in login mode
+    if (isPasswordValid && mode === 'login') {
+      setIsPasswordValid(false);
+      setPassword('');
+      setPasswordError('');
+    }
+
     const isValid = validateEmail(val);
 
     if (isValid) {
-      // Auto-advance focus to Password field if not already filled
       setTimeout(() => {
         if (passwordInputRef.current && !password) {
           passwordInputRef.current.focus();
         }
-      }, 60);
+      }, 100);
     }
   };
 
@@ -192,6 +210,9 @@ export default function LoginPage() {
 
     if (passwordCheckTimerRef.current) {
       clearTimeout(passwordCheckTimerRef.current);
+    }
+    if (passwordAdvanceTimerRef.current) {
+      clearTimeout(passwordAdvanceTimerRef.current);
     }
 
     if (!val) {
@@ -215,12 +236,13 @@ export default function LoginPage() {
         setPasswordError('');
         setIsPasswordValid(true);
 
-        // Password matched! Automatically advance to next (Captcha)
-        setTimeout(() => {
+        // Password matched! Allow user to finish typing without stealing focus,
+        // or auto-advance gently after 900ms idle if no more keystrokes
+        passwordAdvanceTimerRef.current = setTimeout(() => {
           if (captchaInputRef.current) {
             captchaInputRef.current.focus();
           }
-        }, 60);
+        }, 900);
         return;
       }
 
@@ -242,12 +264,11 @@ export default function LoginPage() {
               setPasswordError('');
               setIsPasswordValid(true);
 
-              // Password matched! Automatically advance to next (Captcha)
-              setTimeout(() => {
+              passwordAdvanceTimerRef.current = setTimeout(() => {
                 if (captchaInputRef.current) {
                   captchaInputRef.current.focus();
                 }
-              }, 60);
+              }, 900);
             } else {
               setPasswordError('Wrong password. Please enter the correct password.');
               setIsPasswordValid(false);
@@ -256,7 +277,7 @@ export default function LoginPage() {
             setPasswordError('Wrong password. Please enter the correct password.');
             setIsPasswordValid(false);
           }
-        }, 120);
+        }, 150);
       }
     } else {
       // Mode === 'register': Enforce password strength (minimum 8 characters)
@@ -279,13 +300,13 @@ export default function LoginPage() {
         }
       }
 
-      // Auto-advance focus to Confirm Password if password requirement is met
+      // Auto-advance focus to Confirm Password if password requirement is met (after pause)
       if (val.length >= 8) {
-        setTimeout(() => {
+        passwordAdvanceTimerRef.current = setTimeout(() => {
           if (confirmPasswordInputRef.current && !confirmPassword) {
             confirmPasswordInputRef.current.focus();
           }
-        }, 60);
+        }, 900);
       }
     }
   };
@@ -303,6 +324,10 @@ export default function LoginPage() {
     setGeneralError(null);
     setSuccessMessage(null);
 
+    if (passwordAdvanceTimerRef.current) {
+      clearTimeout(passwordAdvanceTimerRef.current);
+    }
+
     if (!val) {
       setConfirmPasswordError('');
       setIsConfirmPasswordValid(false);
@@ -319,12 +344,12 @@ export default function LoginPage() {
     setConfirmPasswordError('');
     setIsConfirmPasswordValid(true);
 
-    // Auto-advance focus to Security Verification (CAPTCHA)
-    setTimeout(() => {
+    // Auto-advance focus to Security Verification (CAPTCHA) after gentle pause
+    passwordAdvanceTimerRef.current = setTimeout(() => {
       if (captchaInputRef.current && !captchaAnswer) {
         captchaInputRef.current.focus();
       }
-    }, 60);
+    }, 900);
   };
 
   // Captcha input handler: when fully entered (5 chars), go to next (Submit Action button)
@@ -637,7 +662,20 @@ export default function LoginPage() {
                 value={password}
                 onChange={handlePasswordChange}
                 onBlur={handlePasswordBlur}
-                onKeyDown={checkCapsLock}
+                onKeyDown={(e) => {
+                  checkCapsLock(e);
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (isPasswordValid) {
+                      if (passwordAdvanceTimerRef.current) clearTimeout(passwordAdvanceTimerRef.current);
+                      if (mode === 'login' && captchaInputRef.current) {
+                        captchaInputRef.current.focus();
+                      } else if (mode === 'register' && confirmPasswordInputRef.current) {
+                        confirmPasswordInputRef.current.focus();
+                      }
+                    }
+                  }
+                }}
                 onKeyUp={checkCapsLock}
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 disabled={!isEmailValid}
@@ -669,13 +707,41 @@ export default function LoginPage() {
               </div>
             )}
             {isPasswordValid && (
-              <div className={styles.fieldSuccess}>
-                <CheckCircleIcon size={13} />
-                <span>
-                  {mode === 'login'
-                    ? 'Password verified'
-                    : 'Password meets requirement (8+ characters)'}
-                </span>
+              <div className={styles.passwordVerifiedRow}>
+                <div className={styles.fieldSuccess}>
+                  <CheckCircleIcon size={13} />
+                  <span>
+                    {mode === 'login'
+                      ? 'Password verified ✓'
+                      : 'Password meets requirement (8+ characters)'}
+                  </span>
+                </div>
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    className={styles.confirmNextBtn}
+                    onClick={() => {
+                      if (passwordAdvanceTimerRef.current) clearTimeout(passwordAdvanceTimerRef.current);
+                      if (captchaInputRef.current) captchaInputRef.current.focus();
+                    }}
+                  >
+                    <span>Proceed to Captcha</span>
+                    <ArrowRightIcon size={12} />
+                  </button>
+                )}
+                {mode === 'register' && (
+                  <button
+                    type="button"
+                    className={styles.confirmNextBtn}
+                    onClick={() => {
+                      if (passwordAdvanceTimerRef.current) clearTimeout(passwordAdvanceTimerRef.current);
+                      if (confirmPasswordInputRef.current) confirmPasswordInputRef.current.focus();
+                    }}
+                  >
+                    <span>Confirm Password</span>
+                    <ArrowRightIcon size={12} />
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -731,7 +797,16 @@ export default function LoginPage() {
                   }
                   value={confirmPassword}
                   onChange={handleConfirmPasswordChange}
-                  onKeyDown={checkCapsLock}
+                  onKeyDown={(e) => {
+                    checkCapsLock(e);
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (isConfirmPasswordValid) {
+                        if (passwordAdvanceTimerRef.current) clearTimeout(passwordAdvanceTimerRef.current);
+                        if (captchaInputRef.current) captchaInputRef.current.focus();
+                      }
+                    }
+                  }}
                   onKeyUp={checkCapsLock}
                   autoComplete="new-password"
                   disabled={!isPasswordValid}
@@ -763,9 +838,22 @@ export default function LoginPage() {
                 </div>
               )}
               {isConfirmPasswordValid && (
-                <div className={styles.fieldSuccess}>
-                  <CheckCircleIcon size={13} />
-                  <span>Passwords match perfectly</span>
+                <div className={styles.passwordVerifiedRow}>
+                  <div className={styles.fieldSuccess}>
+                    <CheckCircleIcon size={13} />
+                    <span>Passwords match perfectly ✓</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.confirmNextBtn}
+                    onClick={() => {
+                      if (passwordAdvanceTimerRef.current) clearTimeout(passwordAdvanceTimerRef.current);
+                      if (captchaInputRef.current) captchaInputRef.current.focus();
+                    }}
+                  >
+                    <span>Proceed to Captcha</span>
+                    <ArrowRightIcon size={12} />
+                  </button>
                 </div>
               )}
             </div>
