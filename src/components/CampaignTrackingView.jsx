@@ -102,15 +102,84 @@ export default function CampaignTrackingView({ session }) {
       if (singleSearch.trim()) params.set('q', singleSearch.trim());
       if (singleStatusFilter !== 'all') params.set('status', singleStatusFilter);
       params.set('page', String(singlePage));
-      params.set('limit', '25');
+      params.set('limit', '50');
 
-      const res = await fetch(`/api/tracking/single-dispatches?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setSingleRecords(data.records || []);
-        setSingleSummary(data.summary || { total: 0, accepted: 0, opened: 0, clicked: 0, failed: 0 });
-        setSingleTotal(data.total || 0);
+      let serverRecords = [];
+      let serverSummary = { total: 0, accepted: 0, opened: 0, clicked: 0, failed: 0 };
+
+      try {
+        const res = await fetch(`/api/tracking/single-dispatches?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          serverRecords = data.records || [];
+          serverSummary = data.summary || serverSummary;
+        }
+      } catch (fetchErr) {
+        console.warn('[CampaignTracking] Server fetch single dispatches note:', fetchErr);
       }
+
+      // Merge with persistent client ledger to guarantee zero data loss across serverless instances
+      let localRecords = [];
+      try {
+        const raw = localStorage.getItem('sf_single_dispatches_ledger');
+        if (raw) localRecords = JSON.parse(raw);
+      } catch {}
+
+      // Combine records with deduplication
+      const map = new Map();
+      for (const rec of serverRecords) {
+        map.set(rec.id, rec);
+      }
+      for (const rec of localRecords) {
+        if (!map.has(rec.id)) {
+          map.set(rec.id, rec);
+        }
+      }
+      let combined = Array.from(map.values()).sort(
+        (a, b) => new Date(b.created_at || b.sent_at || 0) - new Date(a.created_at || a.sent_at || 0)
+      );
+
+      // Apply client-side search query if present
+      if (singleSearch.trim()) {
+        const q = singleSearch.trim().toLowerCase();
+        combined = combined.filter(
+          (r) =>
+            (r.college_name && r.college_name.toLowerCase().includes(q)) ||
+            (r.email && r.email.toLowerCase().includes(q)) ||
+            (r.contact_person && r.contact_person.toLowerCase().includes(q)) ||
+            (r.department && r.department.toLowerCase().includes(q)) ||
+            (r.subject && r.subject.toLowerCase().includes(q))
+        );
+      }
+
+      // Apply client-side status filter if present
+      if (singleStatusFilter !== 'all') {
+        if (singleStatusFilter === 'OPENED') {
+          combined = combined.filter((r) => (r.open_count || 0) > 0);
+        } else if (singleStatusFilter === 'CLICKED') {
+          combined = combined.filter((r) => (r.click_count || 0) > 0);
+        } else if (singleStatusFilter === 'ACCEPTED') {
+          combined = combined.filter((r) => r.status === 'ACCEPTED' || r.delivery_status === 'SMTP_ACCEPTED');
+        } else if (singleStatusFilter === 'FAILED') {
+          combined = combined.filter((r) => r.status === 'FAILED');
+        }
+      }
+
+      const totalCount = combined.length;
+      const acceptedCount = combined.filter((r) => r.status === 'ACCEPTED' || r.delivery_status === 'SMTP_ACCEPTED').length;
+      const openedCount = combined.filter((r) => (r.open_count || 0) > 0).length;
+      const clickedCount = combined.filter((r) => (r.click_count || 0) > 0).length;
+      const failedCount = combined.filter((r) => r.status === 'FAILED').length;
+
+      setSingleRecords(combined);
+      setSingleSummary({
+        total: Math.max(serverSummary.total, totalCount),
+        accepted: Math.max(serverSummary.accepted, acceptedCount),
+        opened: Math.max(serverSummary.opened, openedCount),
+        clicked: Math.max(serverSummary.clicked, clickedCount),
+        failed: Math.max(serverSummary.failed, failedCount),
+      });
+      setSingleTotal(totalCount);
     } catch (err) {
       console.error('[CampaignTracking] Error fetching single dispatches:', err);
     } finally {

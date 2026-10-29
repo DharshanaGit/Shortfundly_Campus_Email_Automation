@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 import crypto from 'node:crypto';
 import { getSession, canSendOutreach } from '@/lib/auth.js';
 import { logAuditEvent } from '@/lib/db.js';
@@ -158,13 +159,29 @@ export async function POST(request) {
     const cleanBasename = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 40) || 'attachment';
     const safeFilename = `${cleanBasename}_${Date.now()}_${randomSuffix}${ext}`;
 
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'email-attachments');
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
+    let filePath = null;
+    let publicUrl = `/uploads/email-attachments/${safeFilename}`;
 
-    const filePath = path.join(uploadsDir, safeFilename);
-    fs.writeFileSync(filePath, buffer);
+    try {
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'email-attachments');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      filePath = path.join(uploadsDir, safeFilename);
+      fs.writeFileSync(filePath, buffer);
+    } catch (fsErr) {
+      // Serverless / Vercel fallback: write to temporary storage
+      try {
+        const tmpDir = path.join(os.tmpdir(), 'shortfundly_attachments');
+        if (!fs.existsSync(tmpDir)) {
+          fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        filePath = path.join(tmpDir, safeFilename);
+        fs.writeFileSync(filePath, buffer);
+      } catch (tmpErr) {
+        console.warn('[Attachment] Filesystem write skipped, storing buffer in memory payload:', tmpErr?.message);
+      }
+    }
 
     logAuditEvent('ATTACHMENT_UPLOADED', {
       originalName,
@@ -173,19 +190,28 @@ export async function POST(request) {
       mimeType,
     }, session.email);
 
+    const base64Content = buffer.toString('base64');
+    const isImage = mimeType.startsWith('image/');
+    const dataUri = isImage ? `data:${mimeType};base64,${base64Content}` : null;
+
     const attachmentRecord = {
       filename: originalName,
       savedName: safeFilename,
-      url: `/uploads/email-attachments/${safeFilename}`,
+      url: dataUri || publicUrl,
+      publicUrl,
       path: filePath,
+      content: base64Content,
+      encoding: 'base64',
       size: file.size,
       mimeType: mimeType || 'application/octet-stream',
+      isImage,
     };
 
     const response = NextResponse.json({
       success: true,
       message: 'Attachment uploaded successfully.',
       attachment: attachmentRecord,
+      file: attachmentRecord,
     });
     applySecurityHeaders(response.headers);
     return response;

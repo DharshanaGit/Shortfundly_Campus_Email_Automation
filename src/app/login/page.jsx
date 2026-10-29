@@ -614,7 +614,7 @@ export default function LoginPage() {
                 className={`${styles.textInput} ${
                   isEmailValid ? styles.inputValid : emailError ? styles.inputInvalid : ''
                 }`}
-                placeholder="e.g. dachudharshana17@gmail.com"
+                placeholder="e.g. campus.recruitment@gmail.com"
                 value={email}
                 onChange={handleEmailChange}
                 onKeyDown={checkCapsLock}

@@ -403,8 +403,10 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
   const [isCustomizationExpanded, setIsCustomizationExpanded] = useState(true);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [attachmentError, setAttachmentError] = useState('');
   const attachmentInputRef = useRef(null);
+  const imageUploadInputRef = useRef(null);
 
   // Unified Template Selection Handler
   const handleTemplateChange = (templateId) => {
@@ -746,10 +748,10 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
     if (!file) return;
     setAttachmentError('');
 
-    const allowedExts = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.csv'];
+    const allowedExts = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.csv', '.png', '.jpg', '.jpeg', '.webp', '.gif'];
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!allowedExts.includes(ext)) {
-      setAttachmentError(`Unsupported file format (${ext}). Supported: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, CSV.`);
+      setAttachmentError(`Unsupported file format (${ext}). Supported: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, CSV, PNG, JPG, WebP.`);
       e.target.value = '';
       return;
     }
@@ -784,8 +786,17 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
       });
 
       const data = await res.json();
-      if (res.ok && data.success && data.attachment) {
-        setCampaignAttachments((prev) => [...prev, data.attachment]);
+      const uploadedItem = data.attachment || data.file;
+
+      if (res.ok && data.success && uploadedItem) {
+        setCampaignAttachments((prev) => [...prev, uploadedItem]);
+        const isImg = uploadedItem.isImage || uploadedItem.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(uploadedItem.filename || '');
+        if (isImg) {
+          const imgUrl = uploadedItem.url || uploadedItem.publicUrl;
+          if (imgUrl) {
+            setBodyTemplate((prev) => `${prev}\n\n![${uploadedItem.filename || 'Institutional Flyer'}](${imgUrl})\n\n`);
+          }
+        }
       } else {
         setAttachmentError(data.error || 'Failed to upload attachment.');
       }
@@ -797,12 +808,68 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
     }
   };
 
+  // Upload image/poster and insert into email body content
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachmentError('');
+
+    if (file.size > 10 * 1024 * 1024) {
+      setAttachmentError(`Image size exceeds 10 MB limit (${(file.size / (1024 * 1024)).toFixed(2)} MB).`);
+      e.target.value = '';
+      return;
+    }
+
+    if (campaignAttachments.length >= 5) {
+      setAttachmentError('Maximum of 5 attachments allowed per campaign.');
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      const fd = new FormData();
+      fd.append('file', file);
+
+      const res = await fetch('/api/outreach/upload-attachment', {
+        method: 'POST',
+        body: fd,
+      });
+
+      const data = await res.json();
+      const uploadedItem = data.attachment || data.file;
+
+      if (res.ok && data.success && uploadedItem) {
+        setCampaignAttachments((prev) => [...prev, uploadedItem]);
+        const imgUrl = uploadedItem.url || uploadedItem.publicUrl;
+        if (imgUrl) {
+          setBodyTemplate((prev) => `${prev}\n\n![${uploadedItem.filename || 'Institutional Advertisement'}](${imgUrl})\n\n`);
+        }
+      } else {
+        setAttachmentError(data.error || 'Failed to upload image.');
+      }
+    } catch {
+      setAttachmentError('Network error uploading image.');
+    } finally {
+      setUploadingImage(false);
+      e.target.value = '';
+    }
+  };
+
   const handleRemoveAttachment = (idxToRemove) => {
     setCampaignAttachments((prev) => prev.filter((_, idx) => idx !== idxToRemove));
   };
 
-  const handleInsertImage = () => {
-    setBodyTemplate((prev) => prev + '\n\n[Banner: Campus Outreach Initiative]\n\n');
+  const handleInsertImage = (imgSnippet, attachment) => {
+    if (typeof imgSnippet === 'string' && imgSnippet.trim()) {
+      setBodyTemplate((prev) => `${prev}\n\n${imgSnippet}\n\n`);
+    }
+    if (attachment) {
+      setCampaignAttachments((prev) => {
+        if (prev.some((a) => a.filename === attachment.filename || a.savedName === attachment.savedName)) return prev;
+        return [...prev, attachment];
+      });
+    }
     setIsImageModalOpen(false);
   };
 
@@ -1206,7 +1273,9 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
       category: item.category || '',
       website_url: item.website_url || '',
       phone: item.phone || '',
-      state: item.state || 'Andhra Pradesh',
+      state: item.state || Array.from(selectedStates)[0] || 'Andhra Pradesh',
+      country: item.country || (selectedCountry === 'IN' ? 'India' : selectedCountry),
+      contact_salutation: item.contact_salutation || (item.contact_person ? `Dear ${item.contact_person}` : 'Dear Sir/Madam'),
       remarks: item.remarks || '',
       sender_name: 'Campus Outreach Coordinator',
     };
@@ -2456,7 +2525,36 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
                       >
                         • Bullet List
                       </button>
+
+                      <button
+                        type="button"
+                        className={styles.formatBtn}
+                        onClick={() => imageUploadInputRef.current?.click()}
+                        disabled={uploadingImage || campaignAttachments.length >= 5}
+                        style={{ color: '#0d9488', fontWeight: 600, borderColor: '#0d9488' }}
+                        title="Add image banner or institutional flyer into the email"
+                      >
+                        🖼️ {uploadingImage ? 'Uploading Image...' : '+ Add Image / Flyer'}
+                      </button>
+
+                      <button
+                        type="button"
+                        className={styles.formatBtn}
+                        onClick={() => attachmentInputRef.current?.click()}
+                        disabled={uploadingAttachment || campaignAttachments.length >= 5}
+                        title="Attach documents to campaign email"
+                      >
+                        📎 {uploadingAttachment ? 'Attaching...' : '+ Attach File'}
+                      </button>
                     </div>
+
+                    <input
+                      type="file"
+                      ref={imageUploadInputRef}
+                      style={{ display: 'none' }}
+                      accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                      onChange={handleImageUpload}
+                    />
 
                     {/* Placeholder Helper Chips (Jinja & Clean Tags) */}
                     <div className={styles.helperChips}>
@@ -2506,39 +2604,53 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
                       type="file"
                       ref={attachmentInputRef}
                       style={{ display: 'none' }}
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.png,.jpg,.jpeg,.webp,.gif"
                       onChange={handleAttachmentUpload}
                     />
 
                     {campaignAttachments.length > 0 && (
                       <div className={styles.attachmentList}>
-                        {campaignAttachments.map((att, idx) => (
-                          <div key={idx} className={styles.attachmentChip}>
-                            <span>📄 {att.filename}</span>
-                            <span style={{ opacity: 0.7, fontSize: '11px' }}>({formatFileSize(att.size)})</span>
-                            <button
-                              type="button"
-                              className={styles.attachmentRemoveBtn}
-                              onClick={() => handleRemoveAttachment(idx)}
-                              title="Remove attachment"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
+                        {campaignAttachments.map((att, idx) => {
+                          const isImg = att.isImage || att.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(att.filename || '');
+                          return (
+                            <div key={idx} className={styles.attachmentChip}>
+                              <span>{isImg ? '🖼️' : '📄'} {att.filename}</span>
+                              <span style={{ opacity: 0.7, fontSize: '11px' }}>({formatFileSize(att.size)})</span>
+                              <button
+                                type="button"
+                                className={styles.attachmentRemoveBtn}
+                                onClick={() => handleRemoveAttachment(idx)}
+                                title="Remove attachment"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 
-                    <div className={styles.attachmentUploadBox}>
+                    <div className={styles.attachmentUploadBox} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        className={styles.attachmentUploadBtn}
+                        onClick={() => imageUploadInputRef.current?.click()}
+                        disabled={uploadingImage || campaignAttachments.length >= 5}
+                        style={{ background: '#0f766e', borderColor: '#0f766e', color: '#ffffff' }}
+                      >
+                        {uploadingImage ? 'Uploading Image...' : '🖼️ + Attach Image / Flyer'}
+                      </button>
+
                       <button
                         type="button"
                         className={styles.attachmentUploadBtn}
                         onClick={() => attachmentInputRef.current?.click()}
                         disabled={uploadingAttachment || campaignAttachments.length >= 5}
                       >
-                        {uploadingAttachment ? 'Uploading...' : '+ Attach File (PDF, DOCX, XLSX, PPTX, CSV)'}
+                        {uploadingAttachment ? 'Uploading...' : '📎 + Attach Document (PDF, DOCX, XLSX, CSV)'}
                       </button>
-                      <span>
+
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>
                         {campaignAttachments.length} / 5 files attached &bull;{' '}
                         {formatFileSize(campaignAttachments.reduce((acc, a) => acc + (a.size || 0), 0))} / 20 MB total
                       </span>

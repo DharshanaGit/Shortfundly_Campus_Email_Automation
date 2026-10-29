@@ -58,6 +58,7 @@ export default function EmailReviewModal({
 
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
 
   const getInterpolationVars = () => {
     if (!initialData) return {};
@@ -164,11 +165,21 @@ export default function EmailReviewModal({
       });
 
       const data = await res.json();
+      const uploadedItem = data.attachment || data.file;
+
       if (!res.ok) {
         setAttachmentError(data.error || 'Failed to upload attachment.');
-      } else if (data.success && data.file) {
-        setAttachments((prev) => [...prev, data.file]);
+      } else if (data.success && uploadedItem) {
+        setAttachments((prev) => [...prev, uploadedItem]);
         setAttachmentError('');
+
+        // If it's an image, insert flyer tag into body text
+        if (uploadedItem.isImage || uploadedItem.mimeType?.startsWith('image/')) {
+          const imgUrl = uploadedItem.url || uploadedItem.publicUrl;
+          if (imgUrl) {
+            setBodyText((prev) => prev + `\n\n![${uploadedItem.filename || 'Campus Flyer'}](${imgUrl})\n\n`);
+          }
+        }
       }
     } catch {
       setAttachmentError('Network failure during file upload.');
@@ -200,6 +211,8 @@ export default function EmailReviewModal({
           department: initialData.department,
           contact_person: initialData.contact_person || null,
           designation: initialData.designation || null,
+          state: initialData.state || 'Andhra Pradesh',
+          country: initialData.country || 'India',
           subject: finalSubject,
           body_html: finalBodyHtml,
           campaign_id: 'SINGLE_DISPATCH',
@@ -219,6 +232,38 @@ export default function EmailReviewModal({
           outreachId: data.outreachId,
           status: data.status || '250 OK',
         });
+
+        // Store dispatched record into persistent client ledger for immediate Mails Tracker visibility
+        try {
+          const sentRecord = {
+            id: data.outreachId || ('out_' + Date.now()),
+            college_name: initialData.college_name,
+            email: initialData.email,
+            department: initialData.department,
+            contact_person: initialData.contact_person || '',
+            designation: initialData.designation || '',
+            state: initialData.state || 'Andhra Pradesh',
+            country: initialData.country || 'India',
+            subject: finalSubject,
+            status: 'ACCEPTED',
+            delivery_status: 'SMTP_ACCEPTED',
+            smtp_response: data.response || '250 OK Message Accepted',
+            smtp_message_id: data.messageId || null,
+            created_at: new Date().toISOString(),
+            sent_at: new Date().toISOString(),
+            sent_by: user?.email || 'admin',
+            open_count: 0,
+            click_count: 0,
+            attachments: attachments,
+          };
+          const raw = localStorage.getItem('sf_single_dispatches_ledger');
+          const existingList = raw ? JSON.parse(raw) : [];
+          const updated = [sentRecord, ...existingList.filter((r) => r.id !== sentRecord.id)].slice(0, 500);
+          localStorage.setItem('sf_single_dispatches_ledger', JSON.stringify(updated));
+        } catch (storageErr) {
+          console.warn('[EmailReviewModal] Local storage ledger write note:', storageErr?.message);
+        }
+
         if (onSuccess) onSuccess();
       } else {
         setSendResult({
@@ -260,6 +305,9 @@ export default function EmailReviewModal({
           <div className={styles.recipientItem}>
             <BuildingIcon size={14} />
             <span>Target: <strong>{initialData.college_name}</strong></span>
+          </div>
+          <div className={styles.recipientItem}>
+            <span>State: <strong>{initialData.state || 'Andhra Pradesh'}, {initialData.country || 'India'}</strong></span>
           </div>
           <div className={styles.recipientItem}>
             <MailIcon size={14} />
@@ -398,8 +446,36 @@ export default function EmailReviewModal({
                         {v.tag}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className={styles.jinjaPill}
+                      style={{ background: '#ecfdf5', color: '#047857', borderColor: '#10b981', fontWeight: 700 }}
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={uploadingAttachment || attachments.length >= 5}
+                      title="Upload and insert flyer or institutional image banner"
+                    >
+                      🖼️ {uploadingAttachment ? 'Uploading...' : '+ Add Image / Flyer'}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.jinjaPill}
+                      style={{ background: '#f0fdfa', color: '#0f766e', borderColor: '#14b8a6', fontWeight: 700 }}
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingAttachment || attachments.length >= 5}
+                      title="Attach document (PDF, Word, Excel, CSV)"
+                    >
+                      📎 + Attach File
+                    </button>
                   </div>
                 </div>
+
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  style={{ display: 'none' }}
+                  onChange={handleFileUpload}
+                  accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                />
 
                 <textarea
                   ref={textareaRef}

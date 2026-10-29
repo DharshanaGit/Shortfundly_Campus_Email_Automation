@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 import crypto from 'node:crypto';
 import { getSession, canSendOutreach } from '@/lib/auth.js';
 import { saveMediaImage, getMediaImages, deleteMediaImage, logAuditEvent } from '@/lib/db.js';
@@ -84,11 +85,6 @@ export async function POST(request) {
     const cleanBasename = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30);
     const safeFilename = `${cleanBasename}_${Date.now()}_${randomSuffix}${ext}`;
 
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'email-images');
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
@@ -103,33 +99,71 @@ export async function POST(request) {
       return NextResponse.json({ error: 'File header does not match genuine GIF format.' }, { status: 400 });
     }
 
-    const destinationPath = path.join(uploadsDir, safeFilename);
-    fs.writeFileSync(destinationPath, buffer);
+    let publicUrl = `/uploads/email-images/${safeFilename}`;
+    let destinationPath = null;
+    const dataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
 
-    const publicUrl = `/uploads/email-images/${safeFilename}`;
+    try {
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'email-images');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      destinationPath = path.join(uploadsDir, safeFilename);
+      fs.writeFileSync(destinationPath, buffer);
+    } catch (fsErr) {
+      // Vercel / serverless fallback
+      try {
+        const tmpDir = path.join(os.tmpdir(), 'shortfundly_images');
+        if (!fs.existsSync(tmpDir)) {
+          fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        destinationPath = path.join(tmpDir, safeFilename);
+        fs.writeFileSync(destinationPath, buffer);
+      } catch (tmpErr) {
+        console.warn('[Image] File writing skipped, using Data URI representation:', tmpErr?.message);
+      }
+    }
+
     const imgRecord = saveMediaImage({
       filename: safeFilename,
       originalName: customTitle || originalName,
       mimeType,
       sizeBytes: file.size,
-      url: publicUrl,
+      url: dataUri || publicUrl,
       category,
       uploadedBy: session.email,
     });
 
     logAuditEvent('IMAGE_UPLOADED', { filename: safeFilename, size: file.size, category }, session.email);
 
+    const attachmentRecord = {
+      filename: originalName,
+      savedName: safeFilename,
+      url: dataUri || publicUrl,
+      publicUrl,
+      path: destinationPath,
+      content: buffer.toString('base64'),
+      encoding: 'base64',
+      size: file.size,
+      mimeType,
+      isImage: true,
+    };
+
     const response = NextResponse.json({
       success: true,
       image: {
-        id: imgRecord.id,
+        id: imgRecord?.id || ('img_' + Date.now()),
         filename: safeFilename,
         originalName: customTitle || originalName,
-        url: publicUrl,
+        url: dataUri || publicUrl,
+        publicUrl,
+        dataUri,
         size: file.size,
         mimeType,
         category,
-      }
+      },
+      attachment: attachmentRecord,
+      file: attachmentRecord,
     });
 
     applySecurityHeaders(response.headers);

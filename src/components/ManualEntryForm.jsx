@@ -10,7 +10,8 @@ import {
   ShieldAlertIcon,
   AlertCircleIcon,
   CheckCircleIcon,
-  RefreshCwIcon
+  RefreshCwIcon,
+  GlobeIcon
 } from './Icons.jsx';
 
 export default function ManualEntryForm({ templates = [], onOpenReview, duplicateNotice = null, user = null }) {
@@ -144,6 +145,24 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
       }
     }
 
+    // 6. State: NO numbers allowed
+    if (name === 'state') {
+      if (/[0-9]/.test(value)) {
+        updatedErrors.state = 'Numbers are not allowed in state name. Please enter letters only.';
+      } else {
+        delete updatedErrors.state;
+      }
+    }
+
+    // 7. Country: NO numbers allowed
+    if (name === 'country') {
+      if (/[0-9]/.test(value)) {
+        updatedErrors.country = 'Numbers are not allowed in country name. Please enter letters only.';
+      } else {
+        delete updatedErrors.country;
+      }
+    }
+
     setErrors(updatedErrors);
   };
 
@@ -200,6 +219,20 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
       newErrors.designation = 'Numbers are not allowed in designation. Please enter letters only.';
     }
 
+    // State Validation
+    if (!formData.state?.trim()) {
+      newErrors.state = 'State / Region is required';
+    } else if (/[0-9]/.test(formData.state)) {
+      newErrors.state = 'Numbers are not allowed in state name. Please enter letters only.';
+    }
+
+    // Country Validation
+    if (!formData.country?.trim()) {
+      newErrors.country = 'Country is required';
+    } else if (/[0-9]/.test(formData.country)) {
+      newErrors.country = 'Numbers are not allowed in country name. Please enter letters only.';
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -209,12 +242,19 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
     onOpenReview({
       ...formData,
       email: formData.email.trim().toLowerCase(),
+      state: formData.state.trim(),
+      country: formData.country.trim(),
       duplicateWarning,
     });
   };
 
   const hasValidationErrors = Object.keys(errors).length > 0;
-  const isFormIncomplete = !formData.college_name.trim() || !formData.email.trim() || !formData.department.trim();
+  const isFormIncomplete =
+    !formData.college_name.trim() ||
+    !formData.email.trim() ||
+    !formData.department.trim() ||
+    !formData.state.trim() ||
+    !formData.country.trim();
 
   return (
     <div className={styles.container}>
@@ -296,7 +336,7 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
                 name="email"
                 type="email"
                 className={`${styles.input} ${errors.email ? styles.inputError : ''}`}
-                placeholder="e.g. dachudharshana17@gmail.com / placement@college.edu"
+                placeholder="e.g. tpo@college.edu / placement@university.ac.in"
                 value={formData.email}
                 onChange={handleChange}
                 onBlur={handleEmailBlur}
@@ -394,6 +434,58 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
               <div className={styles.errorText}>
                 <AlertCircleIcon size={12} />
                 <span>{errors.designation}</span>
+              </div>
+            )}
+          </div>
+
+          {/* State / Region */}
+          <div className={styles.fieldGroup}>
+            <label className={styles.label} htmlFor="state">
+              <span>State / Region <span className={styles.required}>*</span></span>
+            </label>
+            <div className={styles.inputWrapper}>
+              <span className={styles.inputIcon}><GlobeIcon size={16} /></span>
+              <input
+                id="state"
+                name="state"
+                type="text"
+                className={`${styles.input} ${errors.state ? styles.inputError : ''}`}
+                placeholder="e.g. Andhra Pradesh / Tamil Nadu / Karnataka / Maharashtra"
+                value={formData.state}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            {errors.state && (
+              <div className={styles.errorText}>
+                <AlertCircleIcon size={12} />
+                <span>{errors.state}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Country */}
+          <div className={styles.fieldGroup}>
+            <label className={styles.label} htmlFor="country">
+              <span>Country <span className={styles.required}>*</span></span>
+            </label>
+            <div className={styles.inputWrapper}>
+              <span className={styles.inputIcon}><GlobeIcon size={16} /></span>
+              <input
+                id="country"
+                name="country"
+                type="text"
+                className={`${styles.input} ${errors.country ? styles.inputError : ''}`}
+                placeholder="e.g. India"
+                value={formData.country}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            {errors.country && (
+              <div className={styles.errorText}>
+                <AlertCircleIcon size={12} />
+                <span>{errors.country}</span>
               </div>
             )}
           </div>

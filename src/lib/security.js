@@ -142,12 +142,17 @@ export const outreachSendSchema = z.object({
   campaign_id: z.string().max(100).optional().nullable(),
   attachments: z.array(z.object({
     filename: z.string(),
-    savedName: z.string().optional(),
-    url: z.string().optional(),
-    path: z.string().optional(),
-    mimeType: z.string().optional(),
-    size: z.number().optional()
-  })).max(5, 'Maximum of 5 attachments allowed.').optional().default([]),
+    savedName: z.string().optional().nullable(),
+    url: z.string().optional().nullable(),
+    publicUrl: z.string().optional().nullable(),
+    path: z.string().optional().nullable(),
+    mimeType: z.string().optional().nullable(),
+    size: z.number().optional().nullable(),
+    isImage: z.boolean().optional().nullable(),
+    content: z.string().optional().nullable(),
+    encoding: z.string().optional().nullable(),
+    cid: z.string().optional().nullable(),
+  }).passthrough()).max(10, 'Maximum of 10 attachments allowed.').optional().default([]),
 });
 
 export const checkDuplicateSchema = z.object({

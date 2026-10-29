@@ -97,25 +97,52 @@ function prepareEmailContent(job) {
   const appUrl = (getSystemSetting('app_url', config.APP_URL) || 'http://localhost:3000').replace(/\/+$/, '');
   const trackingToken = job.tracking_token;
 
-  // 1. Process local image tags: convert relative paths to CID attachments or absolute URLs
+  // 1. Process inline image tags: convert base64 data URIs and local files to CID attachments
   const projectRoot = process.cwd();
-  const imageRegex = /<img\s+([^>]*?)src=["'](\/[^"']+)["']([^>]*?)>/gi;
-
   let imgIndex = 0;
+
+  // 1a. Convert base64 data URI images into CID attachments so Gmail/Outlook render them cleanly
+  const dataUriRegex = /<img\s+([^>]*?)src=["']data:image\/([a-zA-Z0-9+]+);base64,([^"']+)["']([^>]*?)>/gi;
+  html = html.replace(dataUriRegex, (match, pre, imageType, base64Data, post) => {
+    const ext = imageType.toLowerCase().replace('+xml', '');
+    const safeExt = ext === 'jpeg' ? 'jpg' : ext;
+    const cid = `img_flyer_${imgIndex++}_${Date.now()}@campusoutreach.org`;
+    attachments.push({
+      filename: `institutional_flyer_${imgIndex}.${safeExt}`,
+      content: base64Data,
+      encoding: 'base64',
+      cid,
+      contentType: `image/${imageType}`,
+    });
+    return `<img ${pre}src="cid:${cid}" ${post}>`;
+  });
+
+  // 1b. Convert relative file paths to CID attachments or absolute URLs
+  const imageRegex = /<img\s+([^>]*?)src=["'](\/[^"']+)["']([^>]*?)>/gi;
   html = html.replace(imageRegex, (match, pre, srcPath, post) => {
-    // If it's a local public file
     const localFilePath = path.join(projectRoot, 'public', srcPath.replace(/^\//, ''));
+    const tmpFilePath1 = path.join(os.tmpdir(), 'shortfundly_images', path.basename(srcPath));
+    const tmpFilePath2 = path.join(os.tmpdir(), 'shortfundly_attachments', path.basename(srcPath));
+    
+    let resolvedPath = null;
     if (fs.existsSync(localFilePath)) {
+      resolvedPath = localFilePath;
+    } else if (fs.existsSync(tmpFilePath1)) {
+      resolvedPath = tmpFilePath1;
+    } else if (fs.existsSync(tmpFilePath2)) {
+      resolvedPath = tmpFilePath2;
+    }
+
+    if (resolvedPath) {
       const cid = `img_cid_${imgIndex++}_${Date.now()}@campusoutreach.org`;
-      const filename = path.basename(localFilePath);
+      const filename = path.basename(resolvedPath);
       attachments.push({
         filename,
-        path: localFilePath,
+        path: resolvedPath,
         cid,
       });
       return `<img ${pre}src="cid:${cid}" ${post}>`;
     } else {
-      // Convert relative URL to hosted absolute URL
       const absoluteUrl = `${appUrl}${srcPath}`;
       return `<img ${pre}src="${absoluteUrl}" ${post}>`;
     }
@@ -167,19 +194,46 @@ function prepareEmailContent(job) {
 
     for (const item of allowedItems) {
       if (!item) continue;
-      let filePath = item.path;
-      if (!filePath && item.url) {
-        filePath = path.join(projectRoot, 'public', item.url.replace(/^\//, ''));
-      }
-      if (filePath && fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
-        const stat = fs.statSync(/*turbopackIgnore: true*/ filePath);
-        if (totalSize + stat.size <= MAX_COMBINED_SIZE) {
-          totalSize += stat.size;
+
+      if (item.content) {
+        // Direct Base64 / in-memory payload (resilient across serverless environments)
+        attachments.push({
+          filename: item.filename || 'attachment',
+          content: item.content,
+          encoding: item.encoding || 'base64',
+          contentType: item.mimeType || undefined,
+        });
+      } else if (item.url && item.url.startsWith('data:')) {
+        const matches = item.url.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
           attachments.push({
-            filename: item.filename || path.basename(filePath),
-            path: filePath,
-            contentType: item.mimeType || undefined,
+            filename: item.filename || 'attachment',
+            content: matches[2],
+            encoding: 'base64',
+            contentType: item.mimeType || matches[1],
           });
+        }
+      } else {
+        let filePath = item.path;
+        if (!filePath && item.url && !item.url.startsWith('http')) {
+          filePath = path.join(projectRoot, 'public', item.url.replace(/^\//, ''));
+        }
+        if (!filePath || !fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
+          const tmp1 = path.join(os.tmpdir(), 'shortfundly_attachments', path.basename(item.savedName || item.filename || ''));
+          const tmp2 = path.join(os.tmpdir(), 'shortfundly_images', path.basename(item.savedName || item.filename || ''));
+          if (fs.existsSync(tmp1)) filePath = tmp1;
+          else if (fs.existsSync(tmp2)) filePath = tmp2;
+        }
+        if (filePath && fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
+          const stat = fs.statSync(/*turbopackIgnore: true*/ filePath);
+          if (totalSize + stat.size <= MAX_COMBINED_SIZE) {
+            totalSize += stat.size;
+            attachments.push({
+              filename: item.filename || path.basename(filePath),
+              path: filePath,
+              contentType: item.mimeType || undefined,
+            });
+          }
         }
       }
     }

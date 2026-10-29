@@ -159,12 +159,17 @@ export function formatBodyToHtml(textOrHtml) {
 
   let processed = String(textOrHtml);
 
-  // Strip legacy promotional images and banner tags to prevent spam flagging
-  processed = processed.replace(/\/uploads\/email-images\/[^\s"'>]+/gi, '');
+  // Strip hardcoded promotional creator pass images to prevent spam flagging
   processed = processed.replace(/\[Banner(?::\s*[^\]]*)?\]/gi, '');
   processed = processed.replace(/<div[^>]*>\s*<img[^>]*sf_creator_pass[^>]*>\s*<\/div>/gi, '');
   processed = processed.replace(/<img[^>]*sf_creator_pass[^>]*>/gi, '');
   processed = processed.replace(/<img[^>]*data:image\/svg\+xml;base64[^>]*>/gi, '');
+
+  // Convert markdown image syntax: ![alt](url) -> centered responsive email image
+  processed = processed.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    '<div style="text-align: center; margin: 18px 0;"><img src="$2" alt="$1" style="max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" /></div>'
+  );
 
   // Check if string is already semantic HTML (contains <p> or <ul>)
   const isAlreadyHtml = /<p\b[^>]*>/i.test(processed) || /<ul\b[^>]*>/i.test(processed);
