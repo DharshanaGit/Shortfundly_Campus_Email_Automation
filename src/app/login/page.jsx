@@ -126,7 +126,7 @@ export default function LoginPage() {
     }
   };
 
-  // Core email validation logic: Numbers ALLOWED, NO Capital letters allowed, ends with @gmail.com
+  // Core email validation logic: Numbers allowed, NO Capital letters allowed, any valid domain accepted
   const validateEmail = (val) => {
     if (!val) {
       setEmailError('');
@@ -141,8 +141,8 @@ export default function LoginPage() {
       return false;
     }
 
-    // 2. Error on disallowed characters (spaces or special symbols other than @, ., _, -)
-    if (/[^a-z0-9@._-]/.test(val)) {
+    // 2. Error on disallowed characters (spaces or special symbols other than @, ., _, -, +)
+    if (/[^a-z0-9@._+-]/.test(val)) {
       setEmailError('Special characters and spaces are not allowed in email.');
       setIsEmailValid(false);
       return false;
@@ -156,23 +156,41 @@ export default function LoginPage() {
       return false;
     }
 
-    // 4. Must end with @gmail.com
-    if (!val.endsWith('@gmail.com')) {
-      setEmailError('Email must end with @gmail.com');
+    // 4. If @ is present, validate structure
+    if (!val.includes('@')) {
+      setEmailError('');
       setIsEmailValid(false);
       return false;
     }
 
-    // 5. Username prefix before @gmail.com (lowercase letters and numbers allowed)
-    const prefix = val.slice(0, -10);
+    const parts = val.split('@');
+    const prefix = parts[0];
+    const domain = parts[1];
+
     if (!prefix || prefix.length === 0) {
-      setEmailError('Please enter your email prefix before @gmail.com');
+      setEmailError('Please enter username before "@"');
       setIsEmailValid(false);
       return false;
     }
 
-    if (!/^[a-z0-9._-]+$/.test(prefix)) {
-      setEmailError('Email prefix must contain only lowercase letters and numbers.');
+    if (!domain || !domain.includes('.')) {
+      setEmailError('');
+      setIsEmailValid(false);
+      return false;
+    }
+
+    const domainParts = domain.split('.');
+    const tld = domainParts[domainParts.length - 1];
+    if (!tld || tld.length < 2) {
+      setEmailError('');
+      setIsEmailValid(false);
+      return false;
+    }
+
+    // Full standard RFC email format check
+    const emailRegex = /^[a-z0-9._+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+    if (!emailRegex.test(val)) {
+      setEmailError('Please enter a valid email address format (e.g. campus@shortfundly.com).');
       setIsEmailValid(false);
       return false;
     }
@@ -415,7 +433,7 @@ export default function LoginPage() {
     setSuccessMessage(null);
 
     if (!isEmailValid) {
-      setGeneralError('Please enter a valid email address ending with @gmail.com (no capital letters).');
+      setGeneralError('Please enter a valid email address (lowercase letters and numbers only, no capital letters).');
       return;
     }
 
@@ -634,7 +652,7 @@ export default function LoginPage() {
                 {isEmailValid ? '✓' : '1'}
               </span>
               <span>Email Address</span>
-              <span className={styles.fieldRuleHint}>Lowercase &amp; numbers allowed &bull; @gmail.com</span>
+              <span className={styles.fieldRuleHint}>Lowercase &amp; numbers allowed &bull; No capital letters</span>
             </label>
             <div className={styles.inputShell}>
               <span className={styles.inputPrefix}>
@@ -647,7 +665,7 @@ export default function LoginPage() {
                 className={`${styles.textInput} ${
                   isEmailValid ? styles.inputValid : emailError ? styles.inputInvalid : ''
                 }`}
-                placeholder="e.g. campus.recruitment@gmail.com"
+                placeholder="e.g. campus@shortfundly.com"
                 value={email}
                 onChange={handleEmailChange}
                 onKeyDown={checkCapsLock}
@@ -668,7 +686,7 @@ export default function LoginPage() {
             {isEmailValid && (
               <div className={styles.fieldSuccess}>
                 <CheckCircleIcon size={13} />
-                <span>Valid Gmail address</span>
+                <span>Valid email address</span>
               </div>
             )}
           </div>

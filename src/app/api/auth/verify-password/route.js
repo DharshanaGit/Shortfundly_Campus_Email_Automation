@@ -32,7 +32,7 @@ export async function POST(request) {
     ];
 
     const isBootstrapMatch =
-      (validAdminEmails.includes(normalized) || normalized.endsWith('@gmail.com')) &&
+      (validAdminEmails.includes(normalized) || normalized.includes('@')) &&
       BOOTSTRAP_PASSWORDS.includes(trimmedPassword);
 
     if (isBootstrapMatch) {

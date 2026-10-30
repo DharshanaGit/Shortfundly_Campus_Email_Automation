@@ -27,7 +27,7 @@ export async function POST(request) {
       );
     }
 
-    // 2. Strict Email Validation: Numbers allowed, NO capital letters allowed, must end with @gmail.com
+    // 2. Strict Email Validation: Lowercase letters & numbers allowed, NO capital letters allowed, any valid domain accepted
     if (!email || typeof email !== 'string') {
       return NextResponse.json(
         { success: false, error: 'Email address is required.' },
@@ -45,27 +45,28 @@ export async function POST(request) {
       );
     }
 
-    // Check for disallowed characters (only lowercase, digits, @, ., _, - allowed)
-    if (/[^a-z0-9@._-]/.test(rawEmail)) {
+    // Check for disallowed characters (only lowercase, digits, @, ., _, -, + allowed)
+    if (/[^a-z0-9@._+-]/.test(rawEmail)) {
       return NextResponse.json(
         { success: false, error: 'Special characters and spaces are not allowed in email.' },
         { status: 400 }
       );
     }
 
-    // Must end with @gmail.com
-    if (!rawEmail.endsWith('@gmail.com')) {
+    // Must contain exactly one @
+    const atCount = (rawEmail.match(/@/g) || []).length;
+    if (atCount !== 1) {
       return NextResponse.json(
-        { success: false, error: 'Email must end with @gmail.com' },
+        { success: false, error: 'Email must contain exactly one "@" symbol.' },
         { status: 400 }
       );
     }
 
-    // Prefix validation (letters and numbers allowed)
-    const prefix = rawEmail.slice(0, -10);
-    if (!prefix || !/^[a-z0-9._-]+$/.test(prefix)) {
+    // Standard RFC email structure check
+    const emailRegex = /^[a-z0-9._+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+    if (!emailRegex.test(rawEmail)) {
       return NextResponse.json(
-        { success: false, error: 'Email prefix must contain only lowercase letters and numbers.' },
+        { success: false, error: 'Please enter a valid email address format (e.g. campus@shortfundly.com).' },
         { status: 400 }
       );
     }
