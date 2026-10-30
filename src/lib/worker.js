@@ -97,29 +97,28 @@ function prepareEmailContent(job) {
   const appUrl = (getSystemSetting('app_url', config.APP_URL) || 'http://localhost:3000').replace(/\/+$/, '');
   const trackingToken = job.tracking_token;
 
-  // 1. Process inline image tags: convert base64 data URIs and local files to CID attachments
+  // 1. Process inline image tags: if any image tags are present, strip them from HTML content and attach them as regular email file attachments
   const projectRoot = process.cwd();
   let imgIndex = 0;
 
-  // 1a. Convert base64 data URI images into CID attachments so Gmail/Outlook render them cleanly
+  // 1a. Convert base64 data URI images into regular file attachments
   const dataUriRegex = /<img\s+([^>]*?)src=["']data:image\/([a-zA-Z0-9+]+);base64,([^"']+)["']([^>]*?)>/gi;
-  html = html.replace(dataUriRegex, (match, pre, imageType, base64Data, post) => {
+  html = html.replace(dataUriRegex, (match, pre, imageType, base64Data) => {
     const ext = imageType.toLowerCase().replace('+xml', '');
     const safeExt = ext === 'jpeg' ? 'jpg' : ext;
-    const cid = `img_flyer_${imgIndex++}_${Date.now()}@campusoutreach.org`;
+    imgIndex++;
     attachments.push({
       filename: `institutional_flyer_${imgIndex}.${safeExt}`,
       content: base64Data,
       encoding: 'base64',
-      cid,
       contentType: `image/${imageType}`,
     });
-    return `<img ${pre}src="cid:${cid}" ${post}>`;
+    return ''; // Remove image from email HTML body
   });
 
-  // 1b. Convert relative file paths to CID attachments or absolute URLs
+  // 1b. Convert relative file path images to regular file attachments
   const imageRegex = /<img\s+([^>]*?)src=["'](\/[^"']+)["']([^>]*?)>/gi;
-  html = html.replace(imageRegex, (match, pre, srcPath, post) => {
+  html = html.replace(imageRegex, (match, pre, srcPath) => {
     const localFilePath = path.join(projectRoot, 'public', srcPath.replace(/^\//, ''));
     const tmpFilePath1 = path.join(os.tmpdir(), 'shortfundly_images', path.basename(srcPath));
     const tmpFilePath2 = path.join(os.tmpdir(), 'shortfundly_attachments', path.basename(srcPath));
@@ -134,18 +133,13 @@ function prepareEmailContent(job) {
     }
 
     if (resolvedPath) {
-      const cid = `img_cid_${imgIndex++}_${Date.now()}@campusoutreach.org`;
       const filename = path.basename(resolvedPath);
       attachments.push({
         filename,
         path: resolvedPath,
-        cid,
       });
-      return `<img ${pre}src="cid:${cid}" ${post}>`;
-    } else {
-      const absoluteUrl = `${appUrl}${srcPath}`;
-      return `<img ${pre}src="${absoluteUrl}" ${post}>`;
     }
+    return ''; // Remove image from email HTML body
   });
 
   // 2. Click tracking: rewrite links if tracking enabled

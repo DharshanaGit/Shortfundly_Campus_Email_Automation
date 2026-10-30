@@ -790,13 +790,6 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
 
       if (res.ok && data.success && uploadedItem) {
         setCampaignAttachments((prev) => [...prev, uploadedItem]);
-        const isImg = uploadedItem.isImage || uploadedItem.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(uploadedItem.filename || '');
-        if (isImg) {
-          const imgUrl = uploadedItem.url || uploadedItem.publicUrl;
-          if (imgUrl) {
-            setBodyTemplate((prev) => `${prev}\n\n![${uploadedItem.filename || 'Institutional Flyer'}](${imgUrl})\n\n`);
-          }
-        }
       } else {
         setAttachmentError(data.error || 'Failed to upload attachment.');
       }
@@ -841,10 +834,6 @@ export default function BulkEmailSender({ templates = [], session, onCampaignFin
 
       if (res.ok && data.success && uploadedItem) {
         setCampaignAttachments((prev) => [...prev, uploadedItem]);
-        const imgUrl = uploadedItem.url || uploadedItem.publicUrl;
-        if (imgUrl) {
-          setBodyTemplate((prev) => `${prev}\n\n![${uploadedItem.filename || 'Institutional Advertisement'}](${imgUrl})\n\n`);
-        }
       } else {
         setAttachmentError(data.error || 'Failed to upload image.');
       }

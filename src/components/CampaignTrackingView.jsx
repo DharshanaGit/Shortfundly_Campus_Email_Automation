@@ -72,30 +72,7 @@ export default function CampaignTrackingView({ session }) {
   const [selectedSingleRecord, setSelectedSingleRecord] = useState(null);
   const [retryingSingleId, setRetryingSingleId] = useState(null);
 
-  // 1. Fetch campaigns list
-  const fetchCampaigns = useCallback(async () => {
-    try {
-      const res = await fetch('/api/tracking/campaigns?limit=50');
-      if (res.ok) {
-        const data = await res.json();
-        setCampaigns(data.campaigns || []);
-        if (data.campaigns && data.campaigns.length > 0 && !activeCampaignId) {
-          setActiveCampaignId(data.campaigns[0].id);
-        }
-      }
-    } catch (err) {
-      console.error('[CampaignTracking] Error fetching campaigns:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeCampaignId]);
-
-  useEffect(() => {
-    fetchCampaigns();
-    fetchSingleDispatches();
-  }, [fetchCampaigns, fetchSingleDispatches]);
-
-  // 2. Fetch Single Dispatches list
+  // 1. Fetch Single Dispatches list
   const fetchSingleDispatches = useCallback(async () => {
     setLoadingSingle(true);
     try {
@@ -188,9 +165,28 @@ export default function CampaignTrackingView({ session }) {
     }
   }, [singleSearch, singleStatusFilter, singlePage]);
 
+  // 2. Fetch campaigns list
+  const fetchCampaigns = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tracking/campaigns?limit=50');
+      if (res.ok) {
+        const data = await res.json();
+        setCampaigns(data.campaigns || []);
+        if (data.campaigns && data.campaigns.length > 0 && !activeCampaignId) {
+          setActiveCampaignId(data.campaigns[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('[CampaignTracking] Error fetching campaigns:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeCampaignId]);
+
   useEffect(() => {
+    fetchCampaigns();
     fetchSingleDispatches();
-  }, [fetchSingleDispatches]);
+  }, [fetchCampaigns, fetchSingleDispatches]);
 
   // 3. Fetch active campaign details and recipients
   const fetchCampaignDetails = useCallback(async (campaignId) => {

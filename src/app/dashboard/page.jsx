@@ -106,7 +106,7 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // 4. Fetch logs
+  // 4. Fetch logs (merges server records with client single dispatches ledger)
   const fetchLogs = useCallback(async () => {
     try {
       const params = new URLSearchParams();
@@ -114,12 +114,56 @@ export default function DashboardPage() {
       if (searchQuery.trim()) params.set('q', searchQuery.trim());
       params.set('limit', '50');
 
+      let serverRecords = [];
+      let totalCount = 0;
+
       const res = await fetch(`/api/outreach/logs?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setRecords(data.records || []);
-        setTotalRecords(data.total || 0);
+        serverRecords = data.records || [];
+        totalCount = data.total || 0;
       }
+
+      // Check persistent client ledger for any locally dispatched single emails
+      let localRecords = [];
+      try {
+        const raw = localStorage.getItem('sf_single_dispatches_ledger');
+        if (raw) localRecords = JSON.parse(raw);
+      } catch {}
+
+      const map = new Map();
+      for (const rec of serverRecords) {
+        map.set(rec.id, rec);
+      }
+      for (const rec of localRecords) {
+        if (!map.has(rec.id)) {
+          map.set(rec.id, rec);
+        }
+      }
+
+      let combined = Array.from(map.values()).sort(
+        (a, b) => new Date(b.created_at || b.sent_at || 0) - new Date(a.created_at || a.sent_at || 0)
+      );
+
+      // Apply search query filter if present
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        combined = combined.filter(
+          (r) =>
+            (r.college_name && r.college_name.toLowerCase().includes(q)) ||
+            (r.email && r.email.toLowerCase().includes(q)) ||
+            (r.department && r.department.toLowerCase().includes(q)) ||
+            (r.subject && r.subject.toLowerCase().includes(q))
+        );
+      }
+
+      // Apply status filter if present
+      if (statusFilter !== 'all') {
+        combined = combined.filter((r) => r.status === statusFilter || (statusFilter === 'ACCEPTED' && r.delivery_status === 'SMTP_ACCEPTED'));
+      }
+
+      setRecords(combined);
+      setTotalRecords(Math.max(totalCount, combined.length));
     } catch (err) {
       console.error('[Dashboard] Logs fetch error:', err);
     }

@@ -172,14 +172,6 @@ export default function EmailReviewModal({
       } else if (data.success && uploadedItem) {
         setAttachments((prev) => [...prev, uploadedItem]);
         setAttachmentError('');
-
-        // If it's an image, insert flyer tag into body text
-        if (uploadedItem.isImage || uploadedItem.mimeType?.startsWith('image/')) {
-          const imgUrl = uploadedItem.url || uploadedItem.publicUrl;
-          if (imgUrl) {
-            setBodyText((prev) => prev + `\n\n![${uploadedItem.filename || 'Campus Flyer'}](${imgUrl})\n\n`);
-          }
-        }
       }
     } catch {
       setAttachmentError('Network failure during file upload.');
