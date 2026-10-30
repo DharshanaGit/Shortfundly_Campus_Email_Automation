@@ -361,6 +361,7 @@ export function getDb() {
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
+        name TEXT,
         password_hash TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'admin',
         is_active INTEGER NOT NULL DEFAULT 1,
@@ -546,6 +547,9 @@ export function getDb() {
       }
       if (!userCols.includes('can_send')) {
         db.exec('ALTER TABLE users ADD COLUMN can_send INTEGER NOT NULL DEFAULT 1;');
+      }
+      if (!userCols.includes('name')) {
+        db.exec('ALTER TABLE users ADD COLUMN name TEXT;');
       }
 
       const logCols = db.prepare('PRAGMA table_info(outreach_logs)').all().map((c) => c.name);

@@ -12,7 +12,7 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { email, password, confirm_password, captcha_token, captcha_answer } = body;
+    const { name, email, password, confirm_password, captcha_token, captcha_answer } = body;
 
     // 1. Verify cryptographic CAPTCHA challenge
     const captchaToken = captcha_token || request.cookies.get('sf_captcha_token')?.value;
@@ -27,7 +27,22 @@ export async function POST(request) {
       );
     }
 
-    // 2. Strict Email Validation: Lowercase letters & numbers allowed, NO capital letters allowed, any valid domain accepted
+    // 2. Provision Name Validation (Rule: No numbers allowed)
+    const rawName = typeof name === 'string' ? name.trim() : '';
+    if (!rawName) {
+      return NextResponse.json(
+        { success: false, error: 'Full name is required.' },
+        { status: 400 }
+      );
+    }
+    if (/[0-9]/.test(rawName)) {
+      return NextResponse.json(
+        { success: false, error: 'Numbers are not allowed in name. Use only letters and spaces.' },
+        { status: 400 }
+      );
+    }
+
+    // 3. Strict Email Validation: Lowercase letters & numbers allowed, NO capital letters allowed, must have @, must end in .com or .in
     if (!email || typeof email !== 'string') {
       return NextResponse.json(
         { success: false, error: 'Email address is required.' },
@@ -71,19 +86,60 @@ export async function POST(request) {
       );
     }
 
-    // Standard RFC email structure check
-    const emailRegex = /^[a-z0-9._+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
-    if (!emailRegex.test(rawEmail)) {
+    // Email domain must end with .com or .in
+    const domain = rawEmail.split('@')[1] || '';
+    if (!/\.(com|in)$/i.test(domain)) {
       return NextResponse.json(
-        { success: false, error: 'Please enter a valid email address format (e.g. campus@shortfundly.com).' },
+        { success: false, error: 'Email domain must end with .com or .in (e.g. campus@shortfundly.com or user@domain.in).' },
         { status: 400 }
       );
     }
 
-    // 3. Password Validation
-    if (!password || typeof password !== 'string' || password.length < 8) {
+    // Standard RFC email structure check
+    const emailRegex = /^[a-z0-9._+-]+@[a-z0-9.-]+\.(com|in)$/;
+    if (!emailRegex.test(rawEmail)) {
       return NextResponse.json(
-        { success: false, error: 'Password must be at least 8 characters long.' },
+        { success: false, error: 'Please enter a valid email address ending in .com or .in (e.g. campus@shortfundly.com).' },
+        { status: 400 }
+      );
+    }
+
+    // 4. Strict Password Validation: (must have 8 characters, small letters, caps letter, special character, numbers)
+    if (!password || typeof password !== 'string') {
+      return NextResponse.json(
+        { success: false, error: 'Password is required.' },
+        { status: 400 }
+      );
+    }
+
+    const trimmedPassword = password.trim();
+    if (trimmedPassword.length < 8) {
+      return NextResponse.json(
+        { success: false, error: 'Password must have at least 8 characters.' },
+        { status: 400 }
+      );
+    }
+    if (!/[a-z]/.test(trimmedPassword)) {
+      return NextResponse.json(
+        { success: false, error: 'Password must contain at least one lowercase letter (a-z).' },
+        { status: 400 }
+      );
+    }
+    if (!/[A-Z]/.test(trimmedPassword)) {
+      return NextResponse.json(
+        { success: false, error: 'Password must contain at least one uppercase letter (A-Z).' },
+        { status: 400 }
+      );
+    }
+    if (!/[0-9]/.test(trimmedPassword)) {
+      return NextResponse.json(
+        { success: false, error: 'Password must contain at least one number (0-9).' },
+        { status: 400 }
+      );
+    }
+    if (!/[^a-zA-Z0-9]/.test(trimmedPassword)) {
+      return NextResponse.json(
+        { success: false, error: 'Password must contain at least one special character (!@#$%^&* etc.).' },
         { status: 400 }
       );
     }
@@ -131,9 +187,9 @@ export async function POST(request) {
 
     try {
       db.prepare(`
-        INSERT INTO users (id, email, password_hash, role, is_active, can_send, created_at)
-        VALUES (?, ?, ?, ?, 1, ?, ?)
-      `).run(userId, normalized, passwordHash, role, canSendVal, now);
+        INSERT INTO users (id, email, name, password_hash, role, is_active, can_send, created_at)
+        VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+      `).run(userId, normalized, rawName, passwordHash, role, canSendVal, now);
     } catch (insertErr) {
       console.error('[Register] Database insert error:', insertErr);
       return NextResponse.json(

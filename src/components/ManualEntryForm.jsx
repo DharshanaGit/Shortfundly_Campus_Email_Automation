@@ -108,18 +108,20 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
       }
     }
 
-    // 2. Recipient Email: NO capital letters allowed, NO only-numbers allowed while typing
+    // 2. Recipient Email: NO capital letters allowed, NO only-numbers allowed while typing, must have @, domain ending in .com or .in
     if (name === 'email') {
       setDuplicateWarning(null);
       const val = value.trim();
       if (/[A-Z]/.test(value)) {
         updatedErrors.email = 'Capital letters are not allowed in email. Use only lowercase letters and numbers.';
       } else if (val && /^[0-9]+$/.test(val)) {
-        updatedErrors.email = 'Email cannot contain only numbers. Please include letters (e.g. tpo123@college.edu).';
+        updatedErrors.email = 'Email cannot contain only numbers. Please include letters (e.g. tpo123@college.com).';
       } else if (val && val.includes('@') && /^[0-9]+$/.test(val.split('@')[0])) {
-        updatedErrors.email = 'Email username cannot contain only numbers. Please include letters (e.g. tpo123@college.edu).';
+        updatedErrors.email = 'Email username cannot contain only numbers. Please include letters (e.g. tpo123@college.com).';
       } else if (val && /[^a-z0-9@._+-]/.test(val)) {
         updatedErrors.email = 'Special characters and spaces are not allowed in email.';
+      } else if (val && val.includes('@') && val.split('@')[1].includes('.') && !/\.(com|in)$/i.test(val.split('@')[1])) {
+        updatedErrors.email = 'Email must have a .com or .in domain extension (e.g. college.com or institute.in).';
       } else {
         delete updatedErrors.email;
       }
@@ -200,16 +202,20 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
       newErrors.college_name = 'Numbers are not allowed in college name. Please enter letters only.';
     }
 
-    // Email Validation
+    // Email Validation: no caps, must have @, username not only numbers, domain must end in .com or .in
     const emailVal = formData.email.trim();
     if (!emailVal) {
       newErrors.email = 'Recipient college email is required';
     } else if (/[A-Z]/.test(formData.email)) {
       newErrors.email = 'Capital letters are not allowed in email. Use only lowercase letters and numbers.';
     } else if (/^[0-9]+$/.test(emailVal) || (emailVal.includes('@') && /^[0-9]+$/.test(emailVal.split('@')[0]))) {
-      newErrors.email = 'Email username cannot contain only numbers. Please include letters (e.g. tpo123@college.edu).';
-    } else if (!/^[a-z0-9._+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(emailVal.toLowerCase())) {
-      newErrors.email = 'Please provide a valid recipient email address format (e.g. tpo@college.edu)';
+      newErrors.email = 'Email username cannot contain only numbers. Please include letters (e.g. tpo123@college.com).';
+    } else if (!emailVal.includes('@')) {
+      newErrors.email = 'Email must contain an "@" symbol.';
+    } else if (!/\.(com|in)$/i.test(emailVal.split('@')[1] || '')) {
+      newErrors.email = 'Email must have a .com or .in domain extension (e.g. info@college.com or director@univ.in).';
+    } else if (!/^[a-z0-9._+-]+@[a-z0-9.-]+\.(com|in)$/.test(emailVal.toLowerCase())) {
+      newErrors.email = 'Please provide a valid recipient email address format (e.g. tpo@college.com or dean@institute.in)';
     }
 
     // Department Validation

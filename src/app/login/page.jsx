@@ -33,6 +33,10 @@ export default function LoginPage() {
   const [mode, setMode] = useState('login');
 
   // Field states
+  const [name, setName] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [isNameValid, setIsNameValid] = useState(false);
+
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [isEmailValid, setIsEmailValid] = useState(false);
@@ -57,6 +61,7 @@ export default function LoginPage() {
   const [capsLockActive, setCapsLockActive] = useState(false);
 
   // Field element refs for smooth auto-advancing focus
+  const nameInputRef = useRef(null);
   const emailInputRef = useRef(null);
   const passwordInputRef = useRef(null);
   const confirmPasswordInputRef = useRef(null);
@@ -98,6 +103,9 @@ export default function LoginPage() {
     if (!successMessage?.includes('successfully created')) {
       setSuccessMessage(null);
     }
+    setName('');
+    setNameError('');
+    setIsNameValid(false);
     setPassword('');
     setPasswordError('');
     setIsPasswordValid(false);
@@ -126,7 +134,71 @@ export default function LoginPage() {
     }
   };
 
-  // Core email validation logic: Numbers allowed, NO Capital letters allowed, ONLY NUMBERS is invalid, any valid domain accepted
+  // Name validation logic: Letters and spaces only, NO numbers allowed
+  const validateName = (val) => {
+    if (!val) {
+      setNameError('');
+      setIsNameValid(false);
+      return false;
+    }
+
+    if (/[0-9]/.test(val)) {
+      setNameError('Numbers are not allowed in name. Use only letters and spaces.');
+      setIsNameValid(false);
+      return false;
+    }
+
+    if (val.trim().length < 2) {
+      setNameError('Name must be at least 2 characters.');
+      setIsNameValid(false);
+      return false;
+    }
+
+    setNameError('');
+    setIsNameValid(true);
+    return true;
+  };
+
+  const handleNameChange = (e) => {
+    const val = e.target.value;
+    setName(val);
+    setGeneralError(null);
+
+    const valid = validateName(val);
+    if (valid) {
+      setTimeout(() => {
+        if (emailInputRef.current && !email) {
+          emailInputRef.current.focus();
+        }
+      }, 300);
+    }
+  };
+
+  // Helper: validate password complexity rule:
+  // Must have 8 characters, lowercase letter, uppercase letter, special character, and numbers
+  const validatePasswordRules = (val) => {
+    if (!val) {
+      return { valid: false, error: '' };
+    }
+    if (val.length < 8) {
+      return { valid: false, error: 'Password must have at least 8 characters.' };
+    }
+    if (!/[a-z]/.test(val)) {
+      return { valid: false, error: 'Password must include at least one small/lowercase letter (a-z).' };
+    }
+    if (!/[A-Z]/.test(val)) {
+      return { valid: false, error: 'Password must include at least one capital/uppercase letter (A-Z).' };
+    }
+    if (!/[0-9]/.test(val)) {
+      return { valid: false, error: 'Password must include at least one number (0-9).' };
+    }
+    if (!/[^a-zA-Z0-9]/.test(val)) {
+      return { valid: false, error: 'Password must include at least one special character (!@#$%^&* etc.).' };
+    }
+    return { valid: true, error: '' };
+  };
+
+  // Core email validation logic: Numbers allowed, NO Capital letters allowed, ONLY NUMBERS is invalid, MUST have @, MUST have .com or .in
   const validateEmail = (val) => {
     if (!val) {
       setEmailError('');
@@ -193,18 +265,17 @@ export default function LoginPage() {
       return false;
     }
 
-    const domainParts = domain.split('.');
-    const tld = domainParts[domainParts.length - 1];
-    if (!tld || tld.length < 2) {
-      setEmailError('');
+    // Domain must end with .com or .in
+    if (!/\.(com|in)$/i.test(domain)) {
+      setEmailError('Email domain must end with .com or .in (e.g. campus@shortfundly.com or user@domain.in).');
       setIsEmailValid(false);
       return false;
     }
 
-    // Full standard RFC email format check
-    const emailRegex = /^[a-z0-9._+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+    // Full standard RFC email format check ending in .com or .in
+    const emailRegex = /^[a-z0-9._+-]+@[a-z0-9.-]+\.(com|in)$/;
     if (!emailRegex.test(val)) {
-      setEmailError('Please enter a valid email address format (e.g. campus@shortfundly.com).');
+      setEmailError('Please enter a valid email address ending in .com or .in (e.g. campus@shortfundly.com).');
       setIsEmailValid(false);
       return false;
     }
@@ -351,9 +422,10 @@ export default function LoginPage() {
         }, 120);
       }
     } else {
-      // Mode === 'register': Enforce password strength (minimum 8 characters)
-      if (val.length < 8) {
-        setPasswordError('Password must be at least 8 characters long.');
+      // Mode === 'register': Enforce password rules: (8 characters, small letters, caps letter, special character, numbers)
+      const ruleCheck = validatePasswordRules(val);
+      if (!ruleCheck.valid) {
+        setPasswordError(ruleCheck.error);
         setIsPasswordValid(false);
       } else {
         setPasswordError('');
@@ -371,13 +443,13 @@ export default function LoginPage() {
         }
       }
 
-      // Auto-advance focus to Confirm Password if password requirement is met (after pause)
-      if (val.length >= 8) {
+      // Auto-advance focus to Confirm Password if all password requirements are met
+      if (ruleCheck.valid) {
         passwordAdvanceTimerRef.current = setTimeout(() => {
           if (confirmPasswordInputRef.current && !confirmPassword) {
             confirmPasswordInputRef.current.focus();
           }
-        }, 900);
+        }, 600);
       }
     }
   };
@@ -446,8 +518,13 @@ export default function LoginPage() {
     setGeneralError(null);
     setSuccessMessage(null);
 
+    if (mode === 'register' && !isNameValid) {
+      setGeneralError('Please enter your name (letters and spaces only, no numbers).');
+      return;
+    }
+
     if (!isEmailValid) {
-      setGeneralError('Please enter a valid email address (lowercase letters and numbers only, no capital letters).');
+      setGeneralError('Please enter a valid email address with @ ending in .com or .in (lowercase and numbers only, no capital letters).');
       return;
     }
 
@@ -455,7 +532,7 @@ export default function LoginPage() {
       if (mode === 'login') {
         setGeneralError('Please enter the correct matching password.');
       } else {
-        setGeneralError('Password must be at least 8 characters long.');
+        setGeneralError('Password must have 8+ characters, lowercase, uppercase, numbers, and a special character.');
       }
       return;
     }
@@ -510,6 +587,7 @@ export default function LoginPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            name: name.trim(),
             email: email.trim().toLowerCase(),
             password: password.trim(),
             confirm_password: confirmPassword.trim(),
@@ -564,7 +642,7 @@ export default function LoginPage() {
   const isFormSubmittable =
     mode === 'login'
       ? isEmailValid && isPasswordValid && captchaAnswer.trim().length === 5 && !loading
-      : isEmailValid && isPasswordValid && isConfirmPasswordValid && captchaAnswer.trim().length === 5 && !loading;
+      : isNameValid && isEmailValid && isPasswordValid && isConfirmPasswordValid && captchaAnswer.trim().length === 5 && !loading;
 
   return (
     <div className={styles.authViewport}>
@@ -655,18 +733,74 @@ export default function LoginPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className={styles.formElement} noValidate>
-          {/* Step 1: Email Address */}
+          {/* Step 1 (Register Mode Only): Full Name - Letters only, NO numbers */}
+          {mode === 'register' && (
+            <div className={styles.fieldUnit}>
+              <label className={styles.fieldLabel} htmlFor="fullname">
+                <span
+                  className={`${styles.stepBadge} ${
+                    isNameValid ? styles.stepBadgeCompleted : styles.stepBadgeActive
+                  }`}
+                >
+                  {isNameValid ? '✓' : '1'}
+                </span>
+                <span>Full Name</span>
+                <span className={styles.fieldRuleHint}>Letters only &bull; No numbers</span>
+              </label>
+              <div className={styles.inputShell}>
+                <span className={styles.inputPrefix}>
+                  <UserIcon size={16} />
+                </span>
+                <input
+                  id="fullname"
+                  ref={nameInputRef}
+                  type="text"
+                  className={`${styles.textInput} ${
+                    isNameValid ? styles.inputValid : nameError ? styles.inputInvalid : ''
+                  }`}
+                  placeholder="e.g. John Doe"
+                  value={name}
+                  onChange={handleNameChange}
+                  autoComplete="name"
+                  autoFocus={mode === 'register'}
+                  required
+                />
+              </div>
+
+              {/* Name Real-time Feedback */}
+              {nameError && (
+                <div className={styles.fieldError}>
+                  <AlertCircleIcon size={13} />
+                  <span>{nameError}</span>
+                </div>
+              )}
+              {isNameValid && (
+                <div className={styles.fieldSuccess}>
+                  <CheckCircleIcon size={13} />
+                  <span>Name valid (letters only) ✓</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Email Address */}
           <div className={styles.fieldUnit}>
             <label className={styles.fieldLabel} htmlFor="email">
               <span
                 className={`${styles.stepBadge} ${
-                  isEmailValid ? styles.stepBadgeCompleted : styles.stepBadgeActive
+                  isEmailValid
+                    ? styles.stepBadgeCompleted
+                    : mode === 'register'
+                    ? isNameValid
+                      ? styles.stepBadgeActive
+                      : ''
+                    : styles.stepBadgeActive
                 }`}
               >
-                {isEmailValid ? '✓' : '1'}
+                {isEmailValid ? '✓' : mode === 'register' ? '2' : '1'}
               </span>
               <span>Email Address</span>
-              <span className={styles.fieldRuleHint}>Lowercase &amp; numbers allowed &bull; No capital letters</span>
+              <span className={styles.fieldRuleHint}>No caps &bull; Must have @ &bull; .com or .in</span>
             </label>
             <div className={styles.inputShell}>
               <span className={styles.inputPrefix}>
@@ -677,7 +811,13 @@ export default function LoginPage() {
                 ref={emailInputRef}
                 type="text"
                 className={`${styles.textInput} ${
-                  isEmailValid ? styles.inputValid : emailError ? styles.inputInvalid : ''
+                  mode === 'register' && !isNameValid
+                    ? styles.inputDisabled
+                    : isEmailValid
+                    ? styles.inputValid
+                    : emailError
+                    ? styles.inputInvalid
+                    : ''
                 }`}
                 placeholder="e.g. campus@shortfundly.com"
                 value={email}
@@ -685,12 +825,19 @@ export default function LoginPage() {
                 onKeyDown={checkCapsLock}
                 onKeyUp={checkCapsLock}
                 autoComplete="email"
-                autoFocus
+                autoFocus={mode === 'login'}
+                disabled={mode === 'register' && !isNameValid}
                 required
               />
             </div>
 
             {/* Email Real-time Feedback */}
+            {mode === 'register' && !isNameValid && (
+              <div className={styles.fieldLockedNotice}>
+                <LockIcon size={12} />
+                <span>Enter your name first to unlock email field</span>
+              </div>
+            )}
             {emailError && (
               <div className={styles.fieldError}>
                 <AlertCircleIcon size={13} />
@@ -700,12 +847,12 @@ export default function LoginPage() {
             {isEmailValid && (
               <div className={styles.fieldSuccess}>
                 <CheckCircleIcon size={13} />
-                <span>Valid email address</span>
+                <span>Valid email format (.com / .in) ✓</span>
               </div>
             )}
           </div>
 
-          {/* Step 2: Password (Unlocked only after Email is valid) */}
+          {/* Password (Unlocked only after Email is valid) */}
           <div className={styles.fieldUnit}>
             <div className={styles.labelBar}>
               <label className={styles.fieldLabel} htmlFor="password">
@@ -718,9 +865,12 @@ export default function LoginPage() {
                       : ''
                   }`}
                 >
-                  {isPasswordValid ? '✓' : '2'}
+                  {isPasswordValid ? '✓' : mode === 'register' ? '3' : '2'}
                 </span>
                 <span>{mode === 'login' ? 'Password' : 'Create Password'}</span>
+                {mode === 'register' && (
+                  <span className={styles.fieldRuleHint}>8+ chars &bull; a-z &bull; A-Z &bull; 0-9 &bull; symbol</span>
+                )}
               </label>
               {isEmailValid && (
                 <button
@@ -754,7 +904,7 @@ export default function LoginPage() {
                   isEmailValid
                     ? mode === 'login'
                       ? 'Enter your password'
-                      : 'At least 8 characters'
+                      : 'e.g. Campus@2026!'
                     : 'Enter valid email first'
                 }
                 value={password}
@@ -811,7 +961,7 @@ export default function LoginPage() {
                   <span>
                     {mode === 'login'
                       ? 'Correct password ✓'
-                      : 'Password meets requirement (8+ characters)'}
+                      : 'Password rule met (8+ chars, small, caps, number, symbol) ✓'}
                   </span>
                 </div>
                 {mode === 'login' && (
@@ -844,7 +994,7 @@ export default function LoginPage() {
             )}
           </div>
 
-          {/* Step 3 (Register Mode Only): Confirm Password */}
+          {/* Confirm Password (Register Mode Only) */}
           {mode === 'register' && (
             <div className={styles.fieldUnit}>
               <div className={styles.labelBar}>
@@ -858,7 +1008,7 @@ export default function LoginPage() {
                         : ''
                     }`}
                   >
-                    {isConfirmPasswordValid ? '✓' : '3'}
+                    {isConfirmPasswordValid ? '✓' : '4'}
                   </span>
                   <span>Confirm Password</span>
                 </label>
@@ -958,10 +1108,10 @@ export default function LoginPage() {
           )}
 
           {/* Security Challenge (CAPTCHA) */}
-          {/* In Login mode: Step 3. In Register mode: Step 4 */}
+          {/* In Login mode: Step 3. In Register mode: Step 5 */}
           {(() => {
             const isUnlocked = mode === 'login' ? isPasswordValid : (isPasswordValid && isConfirmPasswordValid);
-            const stepNum = mode === 'login' ? '3' : '4';
+            const stepNum = mode === 'login' ? '3' : '5';
             const isCompleted = captchaAnswer.trim().length === 5;
 
             return (
