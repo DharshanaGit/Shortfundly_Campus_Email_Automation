@@ -249,6 +249,93 @@
   font-family: var(--font-mono);
 }
 
+/* Master Switches Grid */
+.switchPanel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.switchCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: #f8fafc;
+  transition: all 0.2s ease;
+}
+
+.switchCardActive {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+}
+
+.switchCardWarning {
+  background: #fefce8;
+  border-color: #fde047;
+}
+
+.switchInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.switchTitle {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.switchDesc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.toggleSwitch {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  border-radius: 9999px;
+  background: #cbd5e1;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0;
+  padding: 2px;
+}
+
+.toggleSwitchOn {
+  background: #0d9488;
+}
+
+.toggleSwitchSim {
+  background: #eab308;
+}
+
+.toggleThumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease;
+  display: block;
+}
+
+.toggleThumbOn {
+  transform: translateX(24px);
+}
+
+
 /* Table Styling for Users */
 .tableContainer {
   overflow-x: auto;

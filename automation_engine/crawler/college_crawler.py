@@ -5,10 +5,11 @@ import re
 from automation_engine.config import USER_AGENT, REQUEST_TIMEOUT
 
 TARGET_ROUTE_KEYWORDS = [
-    "contact", "contactus", "reach-us", "about", "about-us",
-    "principal", "director", "leadership", "administration",
-    "tpo", "placement", "placements", "career", "training",
-    "faculty", "staff", "iqac", "departments"
+    "contact", "contactus", "contact-us", "reach-us", "reachus", "about", "about-us", "aboutus",
+    "principal", "director", "leadership", "administration", "governance", "management",
+    "tpo", "placement", "placements", "career", "training", "training-placement",
+    "faculty", "staff", "iqac", "departments", "academics", "people", "directory",
+    "dean", "hod", "registrar", "office", "controller", "examination"
 ]
 
 class CollegeCrawler:
@@ -16,7 +17,7 @@ class CollegeCrawler:
         self.headers = {"User-Agent": USER_AGENT}
         self.client = httpx.Client(timeout=REQUEST_TIMEOUT, verify=False, follow_redirects=True)
 
-    def crawl_college_website(self, base_url, max_subpages=6):
+    def crawl_college_website(self, base_url, max_subpages=12):
         """
         Crawls the institutional homepage and target subpages (/contact, /placement, /faculty, /principal).
         Returns a dictionary of crawled pages with their HTML and text content.

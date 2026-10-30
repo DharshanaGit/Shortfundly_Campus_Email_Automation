@@ -862,6 +862,8 @@ export function getEffectiveSmtpSettings() {
   const from_email = getSystemSetting('from_email', config.FROM_EMAIL || 'campus@shortfundly.com');
   const from_name = getSystemSetting('from_name', config.FROM_NAME || 'Campus Outreach Coordinator');
   const auth_method = getSystemSetting('smtp_auth_method', 'app_password');
+  const smtp_enabled = getSystemSetting('smtp_enabled', '1') !== '0';
+  const simulation_mode = getSystemSetting('simulation_mode', '0') === '1';
 
   return {
     host,
@@ -872,6 +874,8 @@ export function getEffectiveSmtpSettings() {
     from_email,
     from_name,
     auth_method,
+    smtp_enabled,
+    simulation_mode,
     is_configured: Boolean(user && pass),
   };
 }
@@ -1032,22 +1036,9 @@ export function getGeoColleges({ countries = [], states = [], search = '', categ
   }
 }
 
-export function importCollegesAndContacts({ countryCode, countryName, stateOrRegion, rows }) {
+export function importCollegesAndContacts({ countryCode = 'IN', countryName = 'India', stateOrRegion = 'Andhra Pradesh', rows = [] }) {
   const db = getDb();
   const now = new Date().toISOString();
-
-  // Ensure country exists
-  db.prepare(`
-    INSERT OR IGNORE INTO geo_countries (code, name, created_at)
-    VALUES (?, ?, ?)
-  `).run(countryCode, countryName, now);
-
-  // Ensure region exists
-  const regionId = `${countryCode}-${stateOrRegion.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}`;
-  db.prepare(`
-    INSERT OR IGNORE INTO geo_regions (id, country_code, name, type, created_at)
-    VALUES (?, ?, ?, 'state', ?)
-  `).run(regionId, countryCode, stateOrRegion, now);
 
   const insertCollege = db.prepare(`
     INSERT INTO colleges (id, country_code, country_name, state_or_region, district, city, college_name, category, website_url, phone, source, created_at)
@@ -1066,24 +1057,49 @@ export function importCollegesAndContacts({ countryCode, countryName, stateOrReg
   try {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      const collegeName = r.college_name || r['College name'] || r['College Name'] || '';
-      if (!collegeName.trim()) continue;
+      const collegeName = (
+        r.college_name ||
+        r['College Name'] ||
+        r['College name'] ||
+        r['college name'] ||
+        r.name ||
+        r['Name'] ||
+        ''
+      ).trim();
+      if (!collegeName) continue;
+
+      const rowCountryCode = (r.country_code || r['Country Code'] || countryCode || 'IN').trim().toUpperCase();
+      const rowCountryName = (r.country_name || r.country || r['Country'] || countryName || 'India').trim();
+      const rowState = (r.state_or_region || r.state || r['State'] || stateOrRegion || 'Andhra Pradesh').trim();
+
+      // Ensure country exists
+      db.prepare(`
+        INSERT OR IGNORE INTO geo_countries (code, name, created_at)
+        VALUES (?, ?, ?)
+      `).run(rowCountryCode, rowCountryName, now);
+
+      // Ensure region exists
+      const regionId = `${rowCountryCode}-${rowState.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}`;
+      db.prepare(`
+        INSERT OR IGNORE INTO geo_regions (id, country_code, name, type, created_at)
+        VALUES (?, ?, ?, 'state', ?)
+      `).run(regionId, rowCountryCode, rowState, now);
 
       const collegeId = `clg_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`;
-      const district = r.district || r['District'] || '';
-      const city = r.city || r['City'] || r['Place'] || '';
-      const category = r.category || r['Category'] || r['College Type'] || '';
-      const website = r.website_url || r.website || r['Official website URL'] || '';
-      const phone = r.phone || r['Phone / Mobile'] || '';
+      const district = (r.district || r['District'] || '').trim();
+      const city = (r.city || r['City'] || r['Place'] || '').trim();
+      const category = (r.category || r['Category'] || r['College Type'] || 'Engineering / Higher Education').trim();
+      const website = (r.website_url || r.website || r['Official website URL'] || r['Official Website'] || r['Website'] || '').trim();
+      const phone = (r.phone || r['Phone'] || r['Phone / Mobile'] || '').trim();
 
       insertCollege.run(
         collegeId,
-        countryCode,
-        countryName,
-        stateOrRegion,
+        rowCountryCode,
+        rowCountryName,
+        rowState,
         district || null,
         city || null,
-        collegeName.trim(),
+        collegeName,
         category || null,
         website || null,
         phone || null,
@@ -1091,12 +1107,20 @@ export function importCollegesAndContacts({ countryCode, countryName, stateOrReg
       );
       collegesImported++;
 
-      const emails = r.emails || (r.email ? [r.email] : []);
-      const contactPerson = r.contact_person || r['Contact Person'] || 'Official Representative';
-      const designation = r.designation || r['Designation'] || 'Placement & Academic Coordinator';
-      const department = r.department || r['Department'] || 'Campus Outreach';
+      // Handle emails
+      let rawEmails = r.emails || r.email || r['Email'] || r['Recipient Email'] || r['Email Address'] || r['Official Email'] || '';
+      let emailList = [];
+      if (Array.isArray(rawEmails)) {
+        emailList = rawEmails.map(e => String(e).trim()).filter(Boolean);
+      } else if (typeof rawEmails === 'string') {
+        emailList = rawEmails.split(/[,;\s]+/).map(e => e.trim()).filter(Boolean);
+      }
 
-      emails.forEach((em, idx) => {
+      const contactPerson = (r.contact_person || r['Contact Person'] || r['Contact'] || r['Faculty Name'] || 'Institutional Coordinator').trim();
+      const designation = (r.designation || r['Designation'] || 'Placement & Outreach Officer').trim();
+      const department = (r.department || r['Department'] || 'Training & Placement').trim();
+
+      emailList.forEach((em, idx) => {
         const contactId = `cnt_${Date.now()}_${i}_${idx}`;
         insertContact.run(
           contactId,

@@ -12,6 +12,7 @@ import {
   CampaignPulseLogoSymbol,
   BarChartIcon,
   GlobeIcon,
+  UploadCloudIcon,
 } from './Icons';
 
 export default function Sidebar({ activeTab, setActiveTab, session, onLogout }) {
@@ -40,6 +41,12 @@ export default function Sidebar({ activeTab, setActiveTab, session, onLogout }) 
       id: 'sender',
       label: 'Send Emails',
       icon: <SendIcon size={17} />,
+    },
+    {
+      id: 'ingestion',
+      label: 'College Ingestion',
+      icon: <UploadCloudIcon size={17} />,
+      badge: 'CSV/XLSX',
     },
     {
       id: 'campaigns',

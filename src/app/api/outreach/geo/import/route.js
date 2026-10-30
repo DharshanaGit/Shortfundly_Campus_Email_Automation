@@ -19,18 +19,26 @@ export async function POST(request) {
 
   try {
     const body = await request.json().catch(() => ({}));
-    const { countryCode, countryName, stateOrRegion, rows } = body;
+    let { countryCode, countryName, stateOrRegion, rows, college } = body;
 
-    if (!countryCode || !countryName || !stateOrRegion || !Array.isArray(rows) || rows.length === 0) {
+    if (college && typeof college === 'object' && !Array.isArray(rows)) {
+      rows = [college];
+    }
+
+    if (!Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json({
-        error: 'Please provide countryCode, countryName, stateOrRegion, and a non-empty array of college rows.'
+        error: 'Please provide a non-empty array of college records to import.'
       }, { status: 400 });
     }
 
+    countryCode = (countryCode || rows[0]?.country_code || 'IN').trim().toUpperCase();
+    countryName = (countryName || rows[0]?.country_name || rows[0]?.country || 'India').trim();
+    stateOrRegion = (stateOrRegion || rows[0]?.state_or_region || rows[0]?.state || 'Andhra Pradesh').trim();
+
     const result = importCollegesAndContacts({
-      countryCode: countryCode.trim().toUpperCase(),
-      countryName: countryName.trim(),
-      stateOrRegion: stateOrRegion.trim(),
+      countryCode,
+      countryName,
+      stateOrRegion,
       rows,
     });
 

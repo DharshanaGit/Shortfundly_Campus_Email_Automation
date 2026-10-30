@@ -265,9 +265,67 @@ export async function processOutreachJob(outreachId, userEmail = 'system') {
   }
 
   try {
-    const transporter = getMailerTransporter();
-    const { html: fullHtml, attachments } = prepareEmailContent(job);
     const smtp = getEffectiveSmtpSettings();
+
+    // Check if SMTP is turned off in Settings
+    if (smtp.smtp_enabled === false) {
+      const cleanErrorMessage = 'SMTP sending is currently turned OFF in Settings. Enable SMTP in Settings to send live emails.';
+      db.prepare(`
+        UPDATE outreach_logs
+        SET status = 'FAILED',
+            failure_type = 'SMTP_DISABLED',
+            error_message = ?,
+            delivery_status = 'FAILED'
+        WHERE id = ?
+      `).run(cleanErrorMessage, outreachId);
+
+      logAuditEvent('OUTREACH_FAILED_SMTP_OFF', { id: outreachId, email: job.email, reason: cleanErrorMessage }, userEmail);
+      if (job.campaign_id) updateCampaignCounters(job.campaign_id);
+
+      return {
+        success: false,
+        status: 'FAILED',
+        error: cleanErrorMessage,
+      };
+    }
+
+    // Check if Simulation Mode is active (safe testing mode without sending real emails)
+    if (smtp.simulation_mode === true) {
+      const simulatedMsgId = `<simulated_${Date.now()}_${crypto.randomBytes(6).toString('hex')}@simulation.local>`;
+      const simulatedResponse = '250 OK Message Simulated (Test Mode Active - No real email dispatched)';
+      const sentAt = new Date().toISOString();
+
+      db.prepare(`
+        UPDATE outreach_logs
+        SET status = 'ACCEPTED',
+            failure_type = 'NONE',
+            error_message = NULL,
+            smtp_response = ?,
+            smtp_message_id = ?,
+            sent_at = ?,
+            delivery_status = 'SMTP_ACCEPTED'
+        WHERE id = ?
+      `).run(simulatedResponse, simulatedMsgId, sentAt, outreachId);
+
+      logAuditEvent('OUTREACH_SIMULATED', {
+        id: outreachId,
+        email: job.email,
+        messageId: simulatedMsgId,
+        simulation: true
+      }, userEmail);
+
+      if (job.campaign_id) updateCampaignCounters(job.campaign_id);
+
+      return {
+        success: true,
+        status: 'ACCEPTED',
+        messageId: simulatedMsgId,
+        response: simulatedResponse,
+        simulation: true,
+      };
+    }
+
+    const transporter = getMailerTransporter();
     const fromName = smtp.from_name || config.FROM_NAME || 'Campus Outreach Coordinator';
 
     const smtpUser = (smtp.user || '').trim();

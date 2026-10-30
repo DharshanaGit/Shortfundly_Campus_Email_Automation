@@ -15,6 +15,7 @@ import TemplateManager from '@/components/TemplateManager.jsx';
 import SettingsView from '@/components/SettingsView.jsx';
 import SmtpDiagnosticsModal from '@/components/SmtpDiagnosticsModal.jsx';
 import MonitoringDashboard from '@/components/MonitoringDashboard.jsx';
+import CollegeDataIngestionView from '@/components/CollegeDataIngestionView.jsx';
 import {
   RefreshCwIcon,
   ServerIcon,
@@ -344,6 +345,11 @@ export default function DashboardPage() {
           {/* TAB 2: Campaign Tracking & Reports */}
           {activeTab === 'campaigns' && (
             <CampaignTrackingView session={user} />
+          )}
+
+          {/* TAB: College Data Ingestion & Spreadsheet Review */}
+          {activeTab === 'ingestion' && (
+            <CollegeDataIngestionView session={user} />
           )}
 
           {/* TAB: Monthly College Automation & Monitoring */}

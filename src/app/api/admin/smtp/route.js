@@ -30,6 +30,8 @@ export async function GET(request) {
     from_email: smtp.from_email || 'campus@shortfundly.com',
     from_name: smtp.from_name || 'Campus Outreach Coordinator',
     auth_method: smtp.auth_method || 'app_password',
+    smtp_enabled: smtp.smtp_enabled !== false,
+    simulation_mode: Boolean(smtp.simulation_mode),
     is_configured: Boolean(user && smtp.pass),
     pass_masked: smtp.pass ? '••••••••••••••••' : '',
   };
@@ -56,7 +58,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json().catch(() => ({}));
-    const { host, port, secure, user, pass, from_email, from_name, auth_method } = body;
+    const { host, port, secure, user, pass, from_email, from_name, auth_method, smtp_enabled, simulation_mode } = body;
 
     let targetUser = (user || '').trim();
     if (!targetUser || targetUser.toLowerCase().includes('campus@shortfundly')) {
@@ -81,6 +83,12 @@ export async function POST(request) {
     setSystemSetting('from_email', (from_email || 'campus@shortfundly.com').trim(), session.email);
     setSystemSetting('from_name', (from_name || 'Campus Outreach Coordinator').trim(), session.email);
     setSystemSetting('smtp_auth_method', (auth_method || 'app_password').trim(), session.email);
+    if (smtp_enabled !== undefined) {
+      setSystemSetting('smtp_enabled', smtp_enabled ? '1' : '0', session.email);
+    }
+    if (simulation_mode !== undefined) {
+      setSystemSetting('simulation_mode', simulation_mode ? '1' : '0', session.email);
+    }
 
     // Reset cached transporter so changes take immediate effect
     resetMailerTransporter();

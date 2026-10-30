@@ -28,6 +28,8 @@ export default function SettingsView({ session }) {
     from_name: 'Campus Outreach Coordinator',
     from_email: 'campus@shortfundly.com',
     auth_method: 'app_password',
+    smtp_enabled: true,
+    simulation_mode: false,
   });
   const [loadingSmtp, setLoadingSmtp] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
@@ -93,6 +95,8 @@ export default function SettingsView({ session }) {
           from_name: data.from_name || 'Shortfundly Campus Outreach',
           from_email: data.from_email || 'campus@shortfundly.com',
           auth_method: data.auth_method || 'app_password',
+          smtp_enabled: data.smtp_enabled !== false,
+          simulation_mode: Boolean(data.simulation_mode),
         });
 
         // Re-hydrate serverless backend if backend lost credentials on cold restart
@@ -406,6 +410,67 @@ export default function SettingsView({ session }) {
               </div>
             </div>
           )}
+
+          {/* Operational Switches: Master SMTP & Simulation Mode */}
+          <div className={styles.switchPanel}>
+            <div className={`${styles.switchCard} ${smtpForm.smtp_enabled ? styles.switchCardActive : ''}`}>
+              <div className={styles.switchInfo}>
+                <div className={styles.switchTitle}>
+                  <span>Master SMTP Gateway</span>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    background: smtpForm.smtp_enabled ? '#ccfbf1' : '#fee2e2',
+                    color: smtpForm.smtp_enabled ? '#0f766e' : '#b91c1c'
+                  }}>
+                    {smtpForm.smtp_enabled ? 'ENABLED (ON)' : 'DISABLED (OFF)'}
+                  </span>
+                </div>
+                <div className={styles.switchDesc}>
+                  Master switch to enable or shut down all outbound SMTP connections immediately.
+                </div>
+              </div>
+              <button
+                type="button"
+                className={`${styles.toggleSwitch} ${smtpForm.smtp_enabled ? styles.toggleSwitchOn : ''}`}
+                onClick={() => setSmtpForm(prev => ({ ...prev, smtp_enabled: !prev.smtp_enabled }))}
+                aria-label="Toggle SMTP Gateway"
+              >
+                <span className={`${styles.toggleThumb} ${smtpForm.smtp_enabled ? styles.toggleThumbOn : ''}`} />
+              </button>
+            </div>
+
+            <div className={`${styles.switchCard} ${smtpForm.simulation_mode ? styles.switchCardWarning : ''}`}>
+              <div className={styles.switchInfo}>
+                <div className={styles.switchTitle}>
+                  <span>Simulation Testing Mode</span>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    background: smtpForm.simulation_mode ? '#fef08a' : '#f1f5f9',
+                    color: smtpForm.simulation_mode ? '#854d0e' : '#64748b'
+                  }}>
+                    {smtpForm.simulation_mode ? 'ACTIVE (TESTING)' : 'LIVE DISPATCH'}
+                  </span>
+                </div>
+                <div className={styles.switchDesc}>
+                  Simulate email dispatching for testing without sending real emails. Records full audit logs.
+                </div>
+              </div>
+              <button
+                type="button"
+                className={`${styles.toggleSwitch} ${smtpForm.simulation_mode ? styles.toggleSwitchSim : ''}`}
+                onClick={() => setSmtpForm(prev => ({ ...prev, simulation_mode: !prev.simulation_mode }))}
+                aria-label="Toggle Simulation Mode"
+              >
+                <span className={`${styles.toggleThumb} ${smtpForm.simulation_mode ? styles.toggleThumbOn : ''}`} />
+              </button>
+            </div>
+          </div>
 
           <form onSubmit={handleSaveSmtp} autoComplete="off">
             <div className={styles.formGrid}>
