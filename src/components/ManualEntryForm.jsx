@@ -108,11 +108,18 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
       }
     }
 
-    // 2. Recipient Email: NO capital letters allowed while typing
+    // 2. Recipient Email: NO capital letters allowed, NO only-numbers allowed while typing
     if (name === 'email') {
       setDuplicateWarning(null);
+      const val = value.trim();
       if (/[A-Z]/.test(value)) {
         updatedErrors.email = 'Capital letters are not allowed in email. Use only lowercase letters and numbers.';
+      } else if (val && /^[0-9]+$/.test(val)) {
+        updatedErrors.email = 'Email cannot contain only numbers. Please include letters (e.g. tpo123@college.edu).';
+      } else if (val && val.includes('@') && /^[0-9]+$/.test(val.split('@')[0])) {
+        updatedErrors.email = 'Email username cannot contain only numbers. Please include letters (e.g. tpo123@college.edu).';
+      } else if (val && /[^a-z0-9@._+-]/.test(val)) {
+        updatedErrors.email = 'Special characters and spaces are not allowed in email.';
       } else {
         delete updatedErrors.email;
       }
@@ -194,12 +201,15 @@ export default function ManualEntryForm({ templates = [], onOpenReview, duplicat
     }
 
     // Email Validation
-    if (!formData.email.trim()) {
+    const emailVal = formData.email.trim();
+    if (!emailVal) {
       newErrors.email = 'Recipient college email is required';
     } else if (/[A-Z]/.test(formData.email)) {
       newErrors.email = 'Capital letters are not allowed in email. Use only lowercase letters and numbers.';
-    } else if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(formData.email.trim().toLowerCase())) {
-      newErrors.email = 'Please provide a valid recipient email address format';
+    } else if (/^[0-9]+$/.test(emailVal) || (emailVal.includes('@') && /^[0-9]+$/.test(emailVal.split('@')[0]))) {
+      newErrors.email = 'Email username cannot contain only numbers. Please include letters (e.g. tpo123@college.edu).';
+    } else if (!/^[a-z0-9._+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(emailVal.toLowerCase())) {
+      newErrors.email = 'Please provide a valid recipient email address format (e.g. tpo@college.edu)';
     }
 
     // Department Validation

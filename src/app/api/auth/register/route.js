@@ -62,6 +62,15 @@ export async function POST(request) {
       );
     }
 
+    // Username prefix check: cannot contain only numbers
+    const prefix = rawEmail.split('@')[0];
+    if (/^[0-9]+$/.test(prefix)) {
+      return NextResponse.json(
+        { success: false, error: 'Email username cannot contain only numbers. Please include letters (e.g. campus123@domain.com).' },
+        { status: 400 }
+      );
+    }
+
     // Standard RFC email structure check
     const emailRegex = /^[a-z0-9._+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
     if (!emailRegex.test(rawEmail)) {

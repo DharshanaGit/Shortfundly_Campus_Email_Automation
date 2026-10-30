@@ -92,7 +92,8 @@ export default function CampaignTrackingView({ session }) {
 
   useEffect(() => {
     fetchCampaigns();
-  }, [fetchCampaigns]);
+    fetchSingleDispatches();
+  }, [fetchCampaigns, fetchSingleDispatches]);
 
   // 2. Fetch Single Dispatches list
   const fetchSingleDispatches = useCallback(async () => {

@@ -245,7 +245,9 @@ export default function EmailReviewModal({
             state: initialData.state || 'Andhra Pradesh',
             country: initialData.country || 'India',
             subject: finalSubject,
-            status: 'ACCEPTED',
+            body_html: finalBodyHtml,
+            body_text: bodyText,
+            status: data.status || 'ACCEPTED',
             delivery_status: 'SMTP_ACCEPTED',
             smtp_response: data.response || '250 OK Message Accepted',
             smtp_message_id: data.messageId || null,
@@ -266,6 +268,38 @@ export default function EmailReviewModal({
 
         if (onSuccess) onSuccess();
       } else {
+        // Record failed attempt into client ledger as well for complete tracking history
+        try {
+          const failedRecord = {
+            id: data.outreachId || ('out_' + Date.now()),
+            college_name: initialData.college_name,
+            email: initialData.email,
+            department: initialData.department,
+            contact_person: initialData.contact_person || '',
+            designation: initialData.designation || '',
+            state: initialData.state || 'Andhra Pradesh',
+            country: initialData.country || 'India',
+            subject: finalSubject,
+            body_html: finalBodyHtml,
+            body_text: bodyText,
+            status: 'FAILED',
+            delivery_status: 'FAILED',
+            error_message: data.error || 'Dispatch error',
+            smtp_response: data.error || 'Failed to dispatch email',
+            smtp_message_id: null,
+            created_at: new Date().toISOString(),
+            sent_at: null,
+            sent_by: user?.email || 'admin',
+            open_count: 0,
+            click_count: 0,
+            attachments: attachments,
+          };
+          const raw = localStorage.getItem('sf_single_dispatches_ledger');
+          const existingList = raw ? JSON.parse(raw) : [];
+          const updated = [failedRecord, ...existingList.filter((r) => r.id !== failedRecord.id)].slice(0, 500);
+          localStorage.setItem('sf_single_dispatches_ledger', JSON.stringify(updated));
+        } catch {}
+
         setSendResult({
           type: 'ERROR',
           message: data.error || 'Failed to dispatch email.',
@@ -273,6 +307,37 @@ export default function EmailReviewModal({
         });
       }
     } catch (err) {
+      try {
+        const errorRecord = {
+          id: 'out_' + Date.now(),
+          college_name: initialData.college_name,
+          email: initialData.email,
+          department: initialData.department,
+          contact_person: initialData.contact_person || '',
+          designation: initialData.designation || '',
+          state: initialData.state || 'Andhra Pradesh',
+          country: initialData.country || 'India',
+          subject: finalSubject,
+          body_html: finalBodyHtml,
+          body_text: bodyText,
+          status: 'FAILED',
+          delivery_status: 'FAILED',
+          error_message: 'Network communication failure during dispatch.',
+          smtp_response: 'Network error',
+          smtp_message_id: null,
+          created_at: new Date().toISOString(),
+          sent_at: null,
+          sent_by: user?.email || 'admin',
+          open_count: 0,
+          click_count: 0,
+          attachments: attachments,
+        };
+        const raw = localStorage.getItem('sf_single_dispatches_ledger');
+        const existingList = raw ? JSON.parse(raw) : [];
+        const updated = [errorRecord, ...existingList.filter((r) => r.id !== errorRecord.id)].slice(0, 500);
+        localStorage.setItem('sf_single_dispatches_ledger', JSON.stringify(updated));
+      } catch {}
+
       setSendResult({
         type: 'ERROR',
         message: 'Network communication failure during dispatch.',

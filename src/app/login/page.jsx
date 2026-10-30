@@ -126,7 +126,7 @@ export default function LoginPage() {
     }
   };
 
-  // Core email validation logic: Numbers allowed, NO Capital letters allowed, any valid domain accepted
+  // Core email validation logic: Numbers allowed, NO Capital letters allowed, ONLY NUMBERS is invalid, any valid domain accepted
   const validateEmail = (val) => {
     if (!val) {
       setEmailError('');
@@ -148,7 +148,14 @@ export default function LoginPage() {
       return false;
     }
 
-    // 3. Must contain only a single @
+    // 3. Error when typed with only numbers (strictly invalid)
+    if (/^[0-9]+$/.test(val)) {
+      setEmailError('Email cannot contain only numbers. Please include letters (e.g. campus123@domain.com).');
+      setIsEmailValid(false);
+      return false;
+    }
+
+    // 4. Must contain only a single @
     const atCount = (val.match(/@/g) || []).length;
     if (atCount > 1) {
       setEmailError('Email cannot contain multiple "@" symbols.');
@@ -156,7 +163,7 @@ export default function LoginPage() {
       return false;
     }
 
-    // 4. If @ is present, validate structure
+    // 5. If @ is not yet present, user is still typing valid username prefix
     if (!val.includes('@')) {
       setEmailError('');
       setIsEmailValid(false);
@@ -169,6 +176,13 @@ export default function LoginPage() {
 
     if (!prefix || prefix.length === 0) {
       setEmailError('Please enter username before "@"');
+      setIsEmailValid(false);
+      return false;
+    }
+
+    // Prefix cannot be only numbers
+    if (/^[0-9]+$/.test(prefix)) {
+      setEmailError('Email username cannot contain only numbers. Please include letters (e.g. campus123@domain.com).');
       setIsEmailValid(false);
       return false;
     }
