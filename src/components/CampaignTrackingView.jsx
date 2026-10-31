@@ -243,6 +243,55 @@ export default function CampaignTrackingView({ session }) {
     window.open('/api/tracking/single-dispatches/export', '_blank');
   };
 
+  // Delete a single dispatch record
+  const handleDeleteSingleRecord = async (recordId) => {
+    if (!confirm('Are you sure you want to delete this dispatch tracking record?')) return;
+    try {
+      // 1. Delete from server DB
+      await fetch('/api/tracking/single-dispatches', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: recordId }),
+      }).catch(() => {});
+
+      // 2. Also remove from local browser storage ledger
+      try {
+        const raw = localStorage.getItem('sf_single_dispatches_ledger');
+        if (raw) {
+          const list = JSON.parse(raw);
+          const filtered = list.filter((r) => r.id !== recordId);
+          localStorage.setItem('sf_single_dispatches_ledger', JSON.stringify(filtered));
+        }
+      } catch {}
+
+      fetchSingleDispatches();
+    } catch (err) {
+      alert('Error deleting dispatch record: ' + err.message);
+    }
+  };
+
+  // Clear all single dispatch records
+  const handleClearAllSingleRecords = async () => {
+    if (!confirm('Are you sure you want to delete and clear ALL single dispatch tracking records? This cannot be undone.')) return;
+    try {
+      // 1. Delete all from server DB
+      await fetch('/api/tracking/single-dispatches', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearAll: true }),
+      }).catch(() => {});
+
+      // 2. Clear from local browser storage ledger
+      try {
+        localStorage.removeItem('sf_single_dispatches_ledger');
+      } catch {}
+
+      fetchSingleDispatches();
+    } catch (err) {
+      alert('Error clearing dispatch records: ' + err.message);
+    }
+  };
+
   // Retry single dispatch
   const handleRetrySingle = async (recordId) => {
     if (!confirm('Re-dispatch this email to the recipient via Google SMTP?')) return;
@@ -460,6 +509,18 @@ export default function CampaignTrackingView({ session }) {
                   <DownloadIcon size={13} />
                   <span>Export CSV Report</span>
                 </button>
+
+                {singleRecords.length > 0 && (
+                  <button
+                    type="button"
+                    className={`${styles.singleActionBtn} ${styles.singleActionBtnDanger}`}
+                    onClick={handleClearAllSingleRecords}
+                    title="Delete and clear all single mail dispatch tracking records"
+                  >
+                    <CloseIcon size={13} />
+                    <span>Clear All Records</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -609,6 +670,16 @@ export default function CampaignTrackingView({ session }) {
                               >
                                 <EyeIcon size={12} />
                                 <span>View Mail</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                className={`${styles.singleActionBtn} ${styles.singleActionBtnDanger}`}
+                                onClick={() => handleDeleteSingleRecord(rec.id)}
+                                title="Delete this tracking record"
+                              >
+                                <CloseIcon size={12} />
+                                <span>Delete</span>
                               </button>
 
                               {isFailed && (

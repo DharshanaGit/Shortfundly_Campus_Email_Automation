@@ -701,6 +701,18 @@
   color: #ffffff;
 }
 
+.singleActionBtnDanger {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.singleActionBtnDanger:hover {
+  background: #ffe4e6;
+  border-color: #fda4af;
+  color: #9f1239;
+}
+
 .retryBtnSmall {
   display: inline-flex;
   align-items: center;

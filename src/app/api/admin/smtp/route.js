@@ -31,7 +31,7 @@ export async function GET(request) {
     from_name: smtp.from_name || 'Campus Outreach Coordinator',
     auth_method: smtp.auth_method || 'app_password',
     smtp_enabled: smtp.smtp_enabled !== false,
-    simulation_mode: Boolean(smtp.simulation_mode),
+    simulation_mode: smtp.simulation_mode !== false,
     is_configured: Boolean(user && smtp.pass),
     pass_masked: smtp.pass ? '••••••••••••••••' : '',
   };

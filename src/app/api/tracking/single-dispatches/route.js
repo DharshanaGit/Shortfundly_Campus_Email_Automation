@@ -144,3 +144,42 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Failed to process request.' }, { status: 500 });
   }
 }
+
+export async function DELETE(request) {
+  const session = await getSession(request);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!validateCsrfOrigin(request)) {
+    return NextResponse.json({ error: 'CSRF security validation failed' }, { status: 403 });
+  }
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const { id, clearAll } = body;
+    const db = getDb();
+
+    if (clearAll) {
+      db.prepare("DELETE FROM outreach_logs WHERE campaign_id IS NULL OR campaign_id = '' OR campaign_id = 'SINGLE_DISPATCH'").run();
+      logAuditEvent('ALL_SINGLE_DISPATCHES_CLEARED', {}, session.email);
+      const response = NextResponse.json({ success: true, message: 'All single mail tracking records cleared successfully.' });
+      applySecurityHeaders(response.headers);
+      return response;
+    }
+
+    if (id) {
+      db.prepare('DELETE FROM outreach_logs WHERE id = ?').run(id);
+      logAuditEvent('SINGLE_DISPATCH_DELETED', { id }, session.email);
+      const response = NextResponse.json({ success: true, message: 'Record deleted.' });
+      applySecurityHeaders(response.headers);
+      return response;
+    }
+
+    return NextResponse.json({ error: 'ID or clearAll required.' }, { status: 400 });
+  } catch (err) {
+    console.error('[API Single Dispatches DELETE] Error:', err);
+    return NextResponse.json({ error: 'Failed to delete record.' }, { status: 500 });
+  }
+}
+

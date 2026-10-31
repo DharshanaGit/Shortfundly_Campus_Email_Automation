@@ -29,7 +29,7 @@ export default function SettingsView({ session }) {
     from_email: 'campus@shortfundly.com',
     auth_method: 'app_password',
     smtp_enabled: true,
-    simulation_mode: false,
+    simulation_mode: true,
   });
   const [loadingSmtp, setLoadingSmtp] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);

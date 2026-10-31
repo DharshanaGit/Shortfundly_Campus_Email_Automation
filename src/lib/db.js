@@ -863,7 +863,8 @@ export function getEffectiveSmtpSettings() {
   const from_name = getSystemSetting('from_name', config.FROM_NAME || 'Campus Outreach Coordinator');
   const auth_method = getSystemSetting('smtp_auth_method', 'app_password');
   const smtp_enabled = getSystemSetting('smtp_enabled', '1') !== '0';
-  const simulation_mode = getSystemSetting('simulation_mode', '0') === '1';
+  // Default simulation_mode to true ('1') so no real emails are dispatched unless explicitly switched off
+  const simulation_mode = getSystemSetting('simulation_mode', '1') !== '0';
 
   return {
     host,
