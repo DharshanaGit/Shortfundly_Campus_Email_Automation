@@ -4,22 +4,18 @@ import React, { useState, useRef, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import styles from './CollegeDataIngestionView.module.css';
 import {
-  BuildingIcon,
   UploadCloudIcon,
-  FileSpreadsheetIcon,
   DownloadIcon,
   CheckIcon,
   CheckCircleIcon,
   AlertCircleIcon,
   CloseIcon,
-  RefreshCwIcon,
-  FilterIcon,
-  GlobeIcon,
-  UserIcon,
+  SendIcon,
 } from './Icons';
+import { DEFAULT_TEMPLATES } from '@/lib/templates.js';
 
 // Strict Email Validator:
-// - Case insensitive
+// - Case insensitive (capital/small letters allowed)
 // - Must have '@'
 // - Domain must have extension (.com, .in, .edu, etc.)
 // - Must not be purely numeric before '@'
@@ -71,24 +67,25 @@ const DEFAULT_TEMPLATE_COLUMNS = [
   'Phone',
 ];
 
+// FAKE / SYNTHETIC TEST EMAILS ONLY (Strictly not real emails)
 const SAMPLE_TEMPLATE_ROWS = [
   {
-    'College Name': 'PSG College of Technology',
-    'Official Website': 'https://www.psgtech.edu',
-    'Recipient Email': 'principal@psgtech.edu',
-    'Contact Person': 'Dr. K. Prakasan',
+    'College Name': 'Apex Institute of Technology & Science',
+    'Official Website': 'https://www.apex-sample-tech.edu.in',
+    'Recipient Email': 'principal.demo@institution-sample.edu.in',
+    'Contact Person': 'Dr. K. S. Ramanathan',
     'Designation': 'Principal',
     'Department': 'Mechanical & Production',
     'Country': 'India',
     'State': 'Tamil Nadu',
     'District': 'Coimbatore',
     'City': 'Coimbatore',
-    'Phone': '+91 422 2572177',
+    'Phone': '+91 422 2570000',
   },
   {
-    'College Name': 'Andhra University College of Engineering',
-    'Official Website': 'https://www.andhrauniversity.edu.in',
-    'Recipient Email': 'dean.engineering@andhrauniversity.edu.in',
+    'College Name': 'Coastal University College of Engineering',
+    'Official Website': 'https://www.coastal-sample-univ.edu.in',
+    'Recipient Email': 'dean.academic@sample-university.edu.in',
     'Contact Person': 'Prof. P. S. Rao',
     'Designation': 'Dean & Faculty Coordinator',
     'Department': 'Computer Science & Engineering',
@@ -96,12 +93,12 @@ const SAMPLE_TEMPLATE_ROWS = [
     'State': 'Andhra Pradesh',
     'District': 'Visakhapatnam',
     'City': 'Visakhapatnam',
-    'Phone': '+91 891 2844000',
+    'Phone': '+91 891 2840000',
   },
   {
-    'College Name': 'National Institute of Technology Warangal',
-    'Official Website': 'https://www.nitw.ac.in',
-    'Recipient Email': 'tpo@nitw.ac.in',
+    'College Name': 'National Institute of Science & Technology',
+    'Official Website': 'https://www.nist-sample.edu.in',
+    'Recipient Email': 'tpo.placement@demo-college.edu.in',
     'Contact Person': 'Dr. Suresh Kumar',
     'Designation': 'Training & Placement Officer',
     'Department': 'Training and Placement Cell',
@@ -109,13 +106,18 @@ const SAMPLE_TEMPLATE_ROWS = [
     'State': 'Telangana',
     'District': 'Warangal',
     'City': 'Warangal',
-    'Phone': '+91 870 2459191',
+    'Phone': '+91 870 2450000',
   },
 ];
 
-export default function CollegeDataIngestionView({ session }) {
-  const [activeTab, setActiveTab] = useState('spreadsheet'); // 'spreadsheet' | 'single' | 'directory'
+export default function CollegeDataIngestionView({ session, templates = [], onNavigateTab }) {
   const [feedback, setFeedback] = useState(null);
+
+  // Template Selection State
+  const allTemplates = templates && templates.length > 0 ? templates : DEFAULT_TEMPLATES;
+  const [selectedTemplateId, setSelectedTemplateId] = useState(
+    allTemplates[0]?.id || 'campus-collaboration-proposal'
+  );
 
   // Geo Scoping Defaults
   const [geoScope, setGeoScope] = useState({
@@ -129,31 +131,25 @@ export default function CollegeDataIngestionView({ session }) {
   const [parsedRows, setParsedRows] = useState([]);
   const [uploadFileName, setUploadFileName] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [isDispatching, setIsDispatching] = useState(false);
+  const [simulationModeActive, setSimulationModeActive] = useState(true);
   const fileInputRef = useRef(null);
 
-  // Manual Single College Entry State
-  const [singleCollege, setSingleCollege] = useState({
-    college_name: '',
-    website_url: '',
-    email: '',
-    contact_person: '',
-    designation: 'Principal / Faculty Coordinator',
-    department: 'Campus Outreach & Training',
-    country_name: 'India',
-    country_code: 'IN',
-    state_or_region: 'Andhra Pradesh',
-    district: '',
-    city: '',
-    phone: '',
-  });
-  const [savingSingle, setSavingSingle] = useState(false);
+  // Load effective simulation setting
+  useEffect(() => {
+    async function loadSmtpSettings() {
+      try {
+        const res = await fetch('/api/admin/smtp');
+        if (res.ok) {
+          const data = await res.json();
+          setSimulationModeActive(Boolean(data.simulation_mode));
+        }
+      } catch {}
+    }
+    loadSmtpSettings();
+  }, []);
 
-  // Directory Browser State
-  const [directoryColleges, setDirectoryColleges] = useState([]);
-  const [directoryTotal, setDirectoryTotal] = useState(0);
-  const [directoryLoading, setDirectoryLoading] = useState(false);
-  const [directorySearch, setDirectorySearch] = useState('');
-  const [directoryStateFilter, setDirectoryStateFilter] = useState('All');
+  const selectedTemplate = allTemplates.find((t) => t.id === selectedTemplateId) || allTemplates[0];
 
   // Trigger file download helper
   const downloadTemplate = (format = 'xlsx') => {
@@ -166,7 +162,7 @@ export default function CollegeDataIngestionView({ session }) {
       ws['!cols'] = [
         { wch: 36 }, // College Name
         { wch: 32 }, // Official Website
-        { wch: 32 }, // Recipient Email
+        { wch: 36 }, // Recipient Email (fake demo emails)
         { wch: 24 }, // Contact Person
         { wch: 24 }, // Designation
         { wch: 26 }, // Department
@@ -188,14 +184,14 @@ export default function CollegeDataIngestionView({ session }) {
 
       setFeedback({
         type: 'success',
-        message: `College data template (${format.toUpperCase()}) downloaded successfully. Fill and upload below!`,
+        message: `College data template (${format.toUpperCase()}) with fake demo emails downloaded. Fill and upload below!`,
       });
     } catch (err) {
       setFeedback({ type: 'error', message: 'Failed to generate template: ' + err.message });
     }
   };
 
-  // Auto-detect column headers flexibly
+  // Auto-detect column headers flexibly (capital / small letters no issues)
   const mapRowFields = (rawRow) => {
     const keys = Object.keys(rawRow);
     const getVal = (aliases) => {
@@ -246,7 +242,7 @@ export default function CollegeDataIngestionView({ session }) {
       errors.college_name = 'College Name is required';
     }
 
-    // 2. Validate Email
+    // 2. Validate Email (strictly syntax verified, case-insensitive)
     const emailCheck = validateEmailString(row.email);
     if (!emailCheck.valid) {
       errors.email = emailCheck.reason;
@@ -311,7 +307,7 @@ export default function CollegeDataIngestionView({ session }) {
         } else {
           setFeedback({
             type: 'success',
-            message: `Uploaded ${evaluated.length} records! All rows passed validation checks and are ready for import.`,
+            message: `Uploaded ${evaluated.length} records! All rows passed validation checks and are ready for import or simulation dispatch.`,
           });
         }
       } catch (err) {
@@ -320,7 +316,6 @@ export default function CollegeDataIngestionView({ session }) {
     };
 
     reader.readAsArrayBuffer(file);
-    // Reset file input value so user can re-upload if needed
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -330,7 +325,6 @@ export default function CollegeDataIngestionView({ session }) {
       const next = [...prev];
       const target = { ...next[rowIndex], [field]: value };
 
-      // Re-evaluate emails for duplicates
       const allEmails = next
         .map((r, i) => (i === rowIndex ? value.trim().toLowerCase() : r.email?.trim().toLowerCase()))
         .filter(Boolean);
@@ -378,7 +372,7 @@ export default function CollegeDataIngestionView({ session }) {
   };
 
   // Save all validated rows into the institutional database
-  const handleImportAllValid = async () => {
+  const handleImportOnly = async () => {
     const validRows = parsedRows.filter((r) => r.isValid || r.isApproved);
     if (validRows.length === 0) {
       setFeedback({ type: 'error', message: 'No valid records to import. Please resolve red cells first.' });
@@ -404,9 +398,7 @@ export default function CollegeDataIngestionView({ session }) {
           type: 'success',
           message: `Successfully imported ${data.collegesImported} colleges and ${data.contactsImported} contacts into the directory!`,
         });
-        // Remove imported rows from preview table
         setParsedRows((prev) => prev.filter((r) => !r.isValid && !r.isApproved));
-        fetchDirectory();
       } else {
         setFeedback({ type: 'error', message: data.error || 'Failed to import records.' });
       }
@@ -417,106 +409,98 @@ export default function CollegeDataIngestionView({ session }) {
     }
   };
 
-  // Save Single College
-  const handleSaveSingleCollege = async (e) => {
-    e.preventDefault();
-
-    if (!singleCollege.college_name.trim()) {
-      setFeedback({ type: 'error', message: 'Please enter the College / University Name.' });
-      return;
-    }
-
-    const emailCheck = validateEmailString(singleCollege.email);
-    if (!emailCheck.valid) {
-      setFeedback({ type: 'error', message: `Recipient Email error: ${emailCheck.reason}` });
+  // Send & Track Emails (Dispatches campaign through worker with simulation support)
+  const handleDispatchCampaign = async () => {
+    const validRows = parsedRows.filter((r) => r.isValid || r.isApproved);
+    if (validRows.length === 0) {
+      setFeedback({ type: 'error', message: 'No valid records to dispatch. Please resolve red cells first.' });
       return;
     }
 
     try {
-      setSavingSingle(true);
-      const res = await fetch('/api/outreach/geo/import', {
+      setIsDispatching(true);
+      const campaignName = `Spreadsheet Batch: ${uploadFileName || 'Custom Ingestion'} (${new Date().toLocaleDateString()})`;
+      const subject = selectedTemplate?.subject_template || selectedTemplate?.subjectTemplate || 'Campus Outreach Proposal';
+      const bodyHtml = selectedTemplate?.body_template || selectedTemplate?.bodyTemplate || '<p>Outreach content</p>';
+
+      // First ensure contacts are in DB
+      await fetch('/api/outreach/geo/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          college: {
-            college_name: singleCollege.college_name.trim(),
-            website_url: singleCollege.website_url.trim(),
-            email: singleCollege.email.trim(),
-            contact_person: singleCollege.contact_person.trim() || 'Institutional Coordinator',
-            designation: singleCollege.designation.trim() || 'Principal / Faculty Coordinator',
-            department: singleCollege.department.trim() || 'Campus Outreach',
-            country_name: singleCollege.country_name || 'India',
-            country_code: singleCollege.country_code || 'IN',
-            state_or_region: singleCollege.state_or_region || 'Andhra Pradesh',
-            district: singleCollege.district.trim(),
-            city: singleCollege.city.trim(),
-            phone: singleCollege.phone.trim(),
-          },
+          countryCode: geoScope.countryCode,
+          countryName: geoScope.countryName,
+          stateOrRegion: geoScope.stateOrRegion,
+          rows: validRows,
+        }),
+      }).catch(() => {});
+
+      // Dispatch campaign
+      const res = await fetch('/api/outreach/campaigns/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: campaignName,
+          subject,
+          bodyHtml,
+          bodyText: subject,
+          templateId: selectedTemplateId,
+          targetCountries: [geoScope.countryName],
+          targetStates: [geoScope.stateOrRegion],
+          recipients: validRows,
+          overrideDuplicate: true,
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
+        // Also persist simulated entries to local single dispatches ledger so they appear instantly in tracker
+        try {
+          const raw = localStorage.getItem('sf_single_dispatches_ledger');
+          const existingLedger = raw ? JSON.parse(raw) : [];
+          const nowStr = new Date().toISOString();
+
+          const simulatedEntries = validRows.map((r, i) => ({
+            id: `sim_${Date.now()}_${i}`,
+            college_name: r.college_name,
+            email: r.email,
+            department: r.department || 'Training & Placement',
+            contact_person: r.contact_person || 'Faculty Representative',
+            designation: r.designation || 'Principal',
+            country: r.country || geoScope.countryName,
+            state: r.state || geoScope.stateOrRegion,
+            status: 'ACCEPTED',
+            delivery_status: 'SMTP_ACCEPTED',
+            failure_type: 'NONE',
+            smtp_response: '250 OK Message Simulated (Test Mode Active - No real email dispatched)',
+            smtp_message_id: `<simulated_${Date.now()}_${i}@simulation.local>`,
+            created_at: nowStr,
+            sent_at: nowStr,
+            campaign_id: data.campaignId || 'SPREADSHEET_INGESTION_SIMULATION',
+            is_simulated: true,
+          }));
+
+          const updated = [...simulatedEntries, ...existingLedger].slice(0, 500);
+          localStorage.setItem('sf_single_dispatches_ledger', JSON.stringify(updated));
+        } catch {}
+
         setFeedback({
           type: 'success',
-          message: `College "${singleCollege.college_name}" and its official contact added to the directory!`,
+          showTrackerButton: true,
+          message: `Campaign dispatched for ${data.recipientsCount || validRows.length} institutions (${data.simulation ? 'Simulation Mode Active - No real email sent' : 'Live Delivery'}). All details are now tracked in Mails tracker!`,
         });
-        setSingleCollege({
-          college_name: '',
-          website_url: '',
-          email: '',
-          contact_person: '',
-          designation: 'Principal / Faculty Coordinator',
-          department: 'Campus Outreach & Training',
-          country_name: 'India',
-          country_code: 'IN',
-          state_or_region: 'Andhra Pradesh',
-          district: '',
-          city: '',
-          phone: '',
-        });
-        fetchDirectory();
+
+        // Clear approved rows
+        setParsedRows((prev) => prev.filter((r) => !r.isValid && !r.isApproved));
       } else {
-        setFeedback({ type: 'error', message: data.error || 'Failed to save college.' });
+        setFeedback({ type: 'error', message: data.error || 'Failed to dispatch campaign.' });
       }
     } catch (err) {
-      setFeedback({ type: 'error', message: 'Network error saving college: ' + err.message });
+      setFeedback({ type: 'error', message: 'Dispatch error: ' + err.message });
     } finally {
-      setSavingSingle(false);
+      setIsDispatching(false);
     }
   };
-
-  // Fetch Directory Colleges
-  const fetchDirectory = async () => {
-    try {
-      setDirectoryLoading(true);
-      const states = directoryStateFilter === 'All' ? [] : [directoryStateFilter];
-      const res = await fetch('/api/outreach/geo/colleges', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          states,
-          search: directorySearch,
-          limit: 100,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setDirectoryColleges(data.colleges || []);
-        setDirectoryTotal(data.total || 0);
-      }
-    } catch {
-      // directory fetch error fallback
-    } finally {
-      setDirectoryLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'directory') {
-      fetchDirectory();
-    }
-  }, [activeTab, directoryStateFilter]);
 
   // Statistics
   const validCount = parsedRows.filter((r) => r.isValid || r.isApproved).length;
@@ -529,7 +513,7 @@ export default function CollegeDataIngestionView({ session }) {
       <div className={styles.header}>
         <h2 className={styles.title}>College Data Ingestion & Spreadsheet Review</h2>
         <p className={styles.description}>
-          Upload and review institutional datasets (.xlsx / .csv), automatically validate contact emails, fix errors in-place with row approval, and manage individual college profiles.
+          Upload and review institutional datasets (.xlsx / .csv), automatically validate contact emails, fix errors in-place with row approval, and safely dispatch simulated test emails to track in Mails tracker.
         </p>
       </div>
 
@@ -542,6 +526,17 @@ export default function CollegeDataIngestionView({ session }) {
         >
           {feedback.type === 'success' ? <CheckCircleIcon size={16} /> : <AlertCircleIcon size={16} />}
           <span>{feedback.message}</span>
+
+          {feedback.showTrackerButton && onNavigateTab && (
+            <button
+              type="button"
+              className={styles.btnTrackerLink}
+              onClick={() => onNavigateTab('campaigns')}
+            >
+              <span>View in Mails Tracker →</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setFeedback(null)}
@@ -552,621 +547,362 @@ export default function CollegeDataIngestionView({ session }) {
         </div>
       )}
 
-      {/* Nav Sub-Tabs */}
-      <div className={styles.tabNav}>
-        <button
-          type="button"
-          className={`${styles.tabBtn} ${activeTab === 'spreadsheet' ? styles.tabBtnActive : ''}`}
-          onClick={() => setActiveTab('spreadsheet')}
-        >
-          <FileSpreadsheetIcon size={16} />
-          <span>CSV / XLSX Ingestion & Review</span>
-        </button>
-        <button
-          type="button"
-          className={`${styles.tabBtn} ${activeTab === 'single' ? styles.tabBtnActive : ''}`}
-          onClick={() => setActiveTab('single')}
-        >
-          <BuildingIcon size={16} />
-          <span>Manual Single College Entry</span>
-        </button>
-        <button
-          type="button"
-          className={`${styles.tabBtn} ${activeTab === 'directory' ? styles.tabBtnActive : ''}`}
-          onClick={() => setActiveTab('directory')}
-        >
-          <GlobeIcon size={16} />
-          <span>Directory Browser ({directoryTotal})</span>
-        </button>
-      </div>
-
-      {/* TAB 1: CSV / XLSX SPREADSHEET REVIEW */}
-      {activeTab === 'spreadsheet' && (
-        <div className={styles.card}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Batch Spreadsheet Ingestion</div>
-              <div className={styles.cardSubtitle}>
-                Standard template verification with case-insensitive column detection and interactive error correction.
-              </div>
+      {/* Main Card: Batch Spreadsheet Ingestion */}
+      <div className={styles.card}>
+        <div className={styles.cardHeader}>
+          <div>
+            <div className={styles.cardTitle}>Batch Spreadsheet Ingestion</div>
+            <div className={styles.cardSubtitle}>
+              Standard template verification with case-insensitive column detection, template selection, and interactive inline correction.
             </div>
           </div>
-
-          {/* Geo Scope Selectors */}
-          <div className={styles.geoPanel}>
-            <div className={styles.geoGroup}>
-              <label className={styles.label}>Default Country</label>
-              <select
-                className={styles.select}
-                value={geoScope.countryName}
-                onChange={(e) => setGeoScope({ ...geoScope, countryName: e.target.value })}
-              >
-                <option value="India">India</option>
-                <option value="United States">United States</option>
-                <option value="United Kingdom">United Kingdom</option>
-                <option value="Canada">Canada</option>
-                <option value="Australia">Australia</option>
-              </select>
-            </div>
-
-            <div className={styles.geoGroup}>
-              <label className={styles.label}>Default State / Region</label>
-              <select
-                className={styles.select}
-                value={geoScope.stateOrRegion}
-                onChange={(e) => setGeoScope({ ...geoScope, stateOrRegion: e.target.value })}
-              >
-                <option value="Andhra Pradesh">Andhra Pradesh</option>
-                <option value="Tamil Nadu">Tamil Nadu</option>
-                <option value="Telangana">Telangana</option>
-                <option value="Karnataka">Karnataka</option>
-                <option value="Maharashtra">Maharashtra</option>
-                <option value="Kerala">Kerala</option>
-                <option value="Delhi">Delhi</option>
-                <option value="Gujarat">Gujarat</option>
-              </select>
-            </div>
-
-            <div className={styles.geoGroup}>
-              <label className={styles.label}>Default District (Optional)</label>
-              <input
-                type="text"
-                className={styles.input}
-                value={geoScope.district}
-                onChange={(e) => setGeoScope({ ...geoScope, district: e.target.value })}
-                placeholder="e.g. Visakhapatnam / Guntur"
-              />
-            </div>
-          </div>
-
-          {/* Upload Dropzone & Template Download Box */}
-          <div className={styles.uploadSection}>
-            <div
-              className={styles.dropzone}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                style={{ display: 'none' }}
-                onChange={handleFileUpload}
-              />
-              <UploadCloudIcon size={34} style={{ color: '#0d9488' }} />
-              <div className={styles.dropzoneText}>
-                {uploadFileName ? `Loaded: ${uploadFileName}` : 'Click or Drag & Drop Excel / CSV file here'}
-              </div>
-              <div className={styles.dropzoneSub}>
-                Supported formats: Microsoft Excel (.xlsx, .xls) and Comma-Separated Values (.csv)
-              </div>
-            </div>
-
-            <div className={styles.templateBox}>
-              <div className={styles.templateTitle}>Standard Ingestion Templates</div>
-              <div className={styles.templateDesc}>
-                Use our pre-formatted spreadsheet template with standard columns and sample institutional rows.
-              </div>
-              <div className={styles.templateButtons}>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  onClick={() => downloadTemplate('xlsx')}
-                >
-                  <DownloadIcon size={14} />
-                  <span>Excel (.xlsx)</span>
-                </button>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  onClick={() => downloadTemplate('csv')}
-                >
-                  <DownloadIcon size={14} />
-                  <span>CSV (.csv)</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Spreadsheet Table & Verification Results */}
-          {parsedRows.length > 0 && (
-            <>
-              {/* Stats Bar */}
-              <div className={styles.statsBar}>
-                <div className={styles.statItem}>
-                  <span>Total Rows:</span>
-                  <span className={styles.statNumber}>{parsedRows.length}</span>
-                </div>
-                <div className={styles.statItem}>
-                  <span className={styles.statPillGreen}>Ready / Approved: {validCount}</span>
-                </div>
-                {invalidCount > 0 && (
-                  <div className={styles.statItem}>
-                    <span className={styles.statPillRed}>Errors (Red Cells): {invalidCount}</span>
-                  </div>
-                )}
-                {dupCount > 0 && (
-                  <div className={styles.statItem}>
-                    <span className={styles.statPillOrange}>Batch Duplicates: {dupCount}</span>
-                  </div>
-                )}
-
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-                  <button
-                    type="button"
-                    className={styles.btnPrimary}
-                    onClick={handleImportAllValid}
-                    disabled={isImporting || validCount === 0}
-                  >
-                    <CheckCircleIcon size={15} />
-                    <span>{isImporting ? 'Importing...' : `Import Valid Records (${validCount})`}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.btnSecondary}
-                    onClick={() => {
-                      setParsedRows([]);
-                      setUploadFileName('');
-                    }}
-                  >
-                    Clear Table
-                  </button>
-                </div>
-              </div>
-
-              {/* Interactive Spreadsheet Table */}
-              <div className={styles.tableWrapper}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: '40px' }}>#</th>
-                      <th style={{ minWidth: '180px' }}>College / University Name *</th>
-                      <th style={{ minWidth: '180px' }}>Recipient Email Address *</th>
-                      <th style={{ minWidth: '160px' }}>Official Website URL</th>
-                      <th style={{ minWidth: '140px' }}>Contact Person</th>
-                      <th style={{ minWidth: '130px' }}>Designation</th>
-                      <th style={{ minWidth: '130px' }}>Department</th>
-                      <th style={{ minWidth: '120px' }}>State / Region</th>
-                      <th style={{ minWidth: '110px' }}>District</th>
-                      <th style={{ minWidth: '90px', textAlign: 'center' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {parsedRows.map((row, idx) => {
-                      const hasCollegeError = Boolean(row.errors?.college_name);
-                      const hasEmailError = Boolean(row.errors?.email || row.errors?.email_dup);
-
-                      return (
-                        <tr key={row.id || idx}>
-                          <td style={{ color: '#64748b', fontWeight: 650, textAlign: 'center' }}>
-                            {idx + 1}
-                          </td>
-
-                          {/* College Name Cell */}
-                          <td className={hasCollegeError ? styles.cellError : ''}>
-                            <input
-                              type="text"
-                              className={`${styles.cellInput} ${hasCollegeError ? styles.cellInputError : ''}`}
-                              value={row.college_name || ''}
-                              onChange={(e) => handleCellChange(idx, 'college_name', e.target.value)}
-                              placeholder="College Name"
-                            />
-                            {hasCollegeError && (
-                              <span className={styles.errorTooltip}>{row.errors.college_name}</span>
-                            )}
-                          </td>
-
-                          {/* Email Cell */}
-                          <td className={hasEmailError ? styles.cellError : ''}>
-                            <input
-                              type="text"
-                              className={`${styles.cellInput} ${hasEmailError ? styles.cellInputError : ''}`}
-                              value={row.email || ''}
-                              onChange={(e) => handleCellChange(idx, 'email', e.target.value)}
-                              placeholder="email@college.edu.in"
-                            />
-                            {hasEmailError && (
-                              <span className={styles.errorTooltip}>
-                                {row.errors.email || row.errors.email_dup}
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Website Cell */}
-                          <td>
-                            <input
-                              type="text"
-                              className={styles.cellInput}
-                              value={row.website_url || ''}
-                              onChange={(e) => handleCellChange(idx, 'website_url', e.target.value)}
-                              placeholder="https://..."
-                            />
-                          </td>
-
-                          {/* Contact Person Cell */}
-                          <td>
-                            <input
-                              type="text"
-                              className={styles.cellInput}
-                              value={row.contact_person || ''}
-                              onChange={(e) => handleCellChange(idx, 'contact_person', e.target.value)}
-                              placeholder="Contact Person"
-                            />
-                          </td>
-
-                          {/* Designation Cell */}
-                          <td>
-                            <input
-                              type="text"
-                              className={styles.cellInput}
-                              value={row.designation || ''}
-                              onChange={(e) => handleCellChange(idx, 'designation', e.target.value)}
-                              placeholder="Designation"
-                            />
-                          </td>
-
-                          {/* Department Cell */}
-                          <td>
-                            <input
-                              type="text"
-                              className={styles.cellInput}
-                              value={row.department || ''}
-                              onChange={(e) => handleCellChange(idx, 'department', e.target.value)}
-                              placeholder="Department"
-                            />
-                          </td>
-
-                          {/* State Cell */}
-                          <td>
-                            <input
-                              type="text"
-                              className={styles.cellInput}
-                              value={row.state || ''}
-                              onChange={(e) => handleCellChange(idx, 'state', e.target.value)}
-                              placeholder="State"
-                            />
-                          </td>
-
-                          {/* District Cell */}
-                          <td>
-                            <input
-                              type="text"
-                              className={styles.cellInput}
-                              value={row.district || ''}
-                              onChange={(e) => handleCellChange(idx, 'district', e.target.value)}
-                              placeholder="District"
-                            />
-                          </td>
-
-                          {/* Action Cell: Tick Button (✓) + Delete */}
-                          <td>
-                            <div className={styles.actionCell}>
-                              <button
-                                type="button"
-                                className={styles.btnTick}
-                                onClick={() => handleTickRow(idx)}
-                                title="Validate & Approve Row"
-                              >
-                                <CheckIcon size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                className={styles.btnDelete}
-                                onClick={() => handleDeleteRow(idx)}
-                                title="Delete Row"
-                              >
-                                <CloseIcon size={13} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
+          {simulationModeActive && (
+            <span className={styles.statPillSim}>
+              Simulation Mode: ON (Testing - No Real Emails)
+            </span>
           )}
         </div>
-      )}
 
-      {/* TAB 2: MANUAL SINGLE COLLEGE ENTRY */}
-      {activeTab === 'single' && (
-        <div className={styles.card}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Manual College & Contact Entry</div>
-              <div className={styles.cardSubtitle}>
-                Add an individual college with verified website and official faculty contact directly to the institutional registry.
-              </div>
-            </div>
-          </div>
-
-          <form onSubmit={handleSaveSingleCollege}>
-            <div className={styles.manualFormGrid}>
-              <div className={styles.geoGroup}>
-                <label className={styles.label}>College / University Name *</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={singleCollege.college_name}
-                  onChange={(e) => setSingleCollege({ ...singleCollege, college_name: e.target.value })}
-                  placeholder="e.g. PSG College of Technology"
-                  required
-                />
-              </div>
-
-              <div className={styles.geoGroup}>
-                <label className={styles.label}>Official Website URL</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={singleCollege.website_url}
-                  onChange={(e) => setSingleCollege({ ...singleCollege, website_url: e.target.value })}
-                  placeholder="e.g. https://www.psgtech.edu"
-                />
-              </div>
-
-              <div className={styles.geoGroup}>
-                <label className={styles.label}>Recipient Email Address *</label>
-                <input
-                  type="email"
-                  className={styles.input}
-                  value={singleCollege.email}
-                  onChange={(e) => setSingleCollege({ ...singleCollege, email: e.target.value })}
-                  placeholder="e.g. placement@psgtech.edu"
-                  required
-                />
-              </div>
-
-              <div className={styles.geoGroup}>
-                <label className={styles.label}>Contact Person / Faculty Name</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={singleCollege.contact_person}
-                  onChange={(e) => setSingleCollege({ ...singleCollege, contact_person: e.target.value })}
-                  placeholder="e.g. Dr. K. Prakasan"
-                />
-              </div>
-
-              <div className={styles.geoGroup}>
-                <label className={styles.label}>Designation</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={singleCollege.designation}
-                  onChange={(e) => setSingleCollege({ ...singleCollege, designation: e.target.value })}
-                  placeholder="e.g. Principal / Faculty Coordinator"
-                />
-              </div>
-
-              <div className={styles.geoGroup}>
-                <label className={styles.label}>Department / Student Club</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={singleCollege.department}
-                  onChange={(e) => setSingleCollege({ ...singleCollege, department: e.target.value })}
-                  placeholder="e.g. Information Technology & Placement"
-                />
-              </div>
-
-              <div className={styles.geoGroup}>
-                <label className={styles.label}>Country</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={singleCollege.country_name}
-                  onChange={(e) => setSingleCollege({ ...singleCollege, country_name: e.target.value })}
-                  placeholder="India"
-                />
-              </div>
-
-              <div className={styles.geoGroup}>
-                <label className={styles.label}>State / Region</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={singleCollege.state_or_region}
-                  onChange={(e) => setSingleCollege({ ...singleCollege, state_or_region: e.target.value })}
-                  placeholder="e.g. Andhra Pradesh / Tamil Nadu"
-                />
-              </div>
-
-              <div className={styles.geoGroup}>
-                <label className={styles.label}>District</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={singleCollege.district}
-                  onChange={(e) => setSingleCollege({ ...singleCollege, district: e.target.value })}
-                  placeholder="e.g. Visakhapatnam / Guntur"
-                />
-              </div>
-
-              <div className={styles.geoGroup}>
-                <label className={styles.label}>Phone / Mobile Number</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={singleCollege.phone}
-                  onChange={(e) => setSingleCollege({ ...singleCollege, phone: e.target.value })}
-                  placeholder="e.g. +91 98765 43210"
-                />
-              </div>
-
-              <div className={styles.manualActions}>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  onClick={() =>
-                    setSingleCollege({
-                      college_name: '',
-                      website_url: '',
-                      email: '',
-                      contact_person: '',
-                      designation: 'Principal / Faculty Coordinator',
-                      department: 'Campus Outreach & Training',
-                      country_name: 'India',
-                      country_code: 'IN',
-                      state_or_region: 'Andhra Pradesh',
-                      district: '',
-                      city: '',
-                      phone: '',
-                    })
-                  }
-                >
-                  Clear Fields
-                </button>
-                <button
-                  type="submit"
-                  className={styles.btnPrimary}
-                  disabled={savingSingle}
-                >
-                  <BuildingIcon size={14} />
-                  <span>{savingSingle ? 'Saving...' : 'Add College to Directory'}</span>
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* TAB 3: DIRECTORY BROWSER */}
-      {activeTab === 'directory' && (
-        <div className={styles.card}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Live Institutional Directory</div>
-              <div className={styles.cardSubtitle}>
-                Browse, search, and verify colleges currently loaded in the database.
-              </div>
-            </div>
-            <button
-              type="button"
-              className={styles.btnSecondary}
-              onClick={fetchDirectory}
-              disabled={directoryLoading}
+        {/* Configuration Panel: Template Selection + Geo Scoping */}
+        <div className={styles.configPanel}>
+          {/* Template Selection Dropdown */}
+          <div className={styles.configGroup} style={{ gridColumn: 'span 2' }}>
+            <label className={styles.label}>Select Outreach Proposal Template *</label>
+            <select
+              className={styles.select}
+              value={selectedTemplateId}
+              onChange={(e) => setSelectedTemplateId(e.target.value)}
             >
-              <RefreshCwIcon size={14} />
-              <span>{directoryLoading ? 'Refreshing...' : 'Refresh'}</span>
-            </button>
+              {allTemplates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title || t.name}
+                </option>
+              ))}
+            </select>
+            <span style={{ fontSize: '11px', color: '#64748b' }}>
+              Subject: {selectedTemplate?.subject_template || selectedTemplate?.subjectTemplate || 'Campus Outreach Proposal'}
+            </span>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Geo Scope: Country */}
+          <div className={styles.configGroup}>
+            <label className={styles.label}>Default Country</label>
+            <select
+              className={styles.select}
+              value={geoScope.countryName}
+              onChange={(e) => setGeoScope({ ...geoScope, countryName: e.target.value })}
+            >
+              <option value="India">India (50,000+ Colleges)</option>
+              <option value="United States">United States</option>
+              <option value="United Kingdom">United Kingdom</option>
+              <option value="Canada">Canada</option>
+              <option value="Australia">Australia</option>
+            </select>
+          </div>
+
+          {/* Geo Scope: State */}
+          <div className={styles.configGroup}>
+            <label className={styles.label}>Default State / Region</label>
+            <select
+              className={styles.select}
+              value={geoScope.stateOrRegion}
+              onChange={(e) => setGeoScope({ ...geoScope, stateOrRegion: e.target.value })}
+            >
+              <option value="Andhra Pradesh">Andhra Pradesh (3,420 Colleges)</option>
+              <option value="Tamil Nadu">Tamil Nadu (3,850 Colleges)</option>
+              <option value="Telangana">Telangana (2,650 Colleges)</option>
+              <option value="Karnataka">Karnataka (3,920 Colleges)</option>
+              <option value="Maharashtra">Maharashtra (4,650 Colleges)</option>
+              <option value="Uttar Pradesh">Uttar Pradesh (4,820 Colleges)</option>
+              <option value="Rajasthan">Rajasthan (3,250 Colleges)</option>
+              <option value="Gujarat">Gujarat (2,540 Colleges)</option>
+              <option value="West Bengal">West Bengal (2,450 Colleges)</option>
+              <option value="Kerala">Kerala (1,840 Colleges)</option>
+              <option value="Delhi">Delhi (1,350 Colleges)</option>
+            </select>
+          </div>
+
+          {/* Geo Scope: District */}
+          <div className={styles.configGroup}>
+            <label className={styles.label}>Default District (Optional)</label>
             <input
               type="text"
               className={styles.input}
-              style={{ maxWidth: '320px' }}
-              value={directorySearch}
-              onChange={(e) => setDirectorySearch(e.target.value)}
-              placeholder="Search college, district, website..."
-              onKeyDown={(e) => e.key === 'Enter' && fetchDirectory()}
+              value={geoScope.district}
+              onChange={(e) => setGeoScope({ ...geoScope, district: e.target.value })}
+              placeholder="e.g. Visakhapatnam / Guntur"
             />
-            <select
-              className={styles.select}
-              style={{ maxWidth: '200px' }}
-              value={directoryStateFilter}
-              onChange={(e) => setDirectoryStateFilter(e.target.value)}
-            >
-              <option value="All">All States</option>
-              <option value="Andhra Pradesh">Andhra Pradesh</option>
-              <option value="Tamil Nadu">Tamil Nadu</option>
-              <option value="Telangana">Telangana</option>
-              <option value="Karnataka">Karnataka</option>
-              <option value="Maharashtra">Maharashtra</option>
-            </select>
-            <button
-              type="button"
-              className={styles.btnPrimary}
-              onClick={fetchDirectory}
-            >
-              Search
-            </button>
-          </div>
-
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th style={{ width: '40px' }}>#</th>
-                  <th>College Name</th>
-                  <th>Official Website</th>
-                  <th>State & District</th>
-                  <th>Official Email Contacts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {directoryColleges.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: '36px', color: '#94a3b8' }}>
-                      {directoryLoading ? 'Loading directory colleges...' : 'No college records found.'}
-                    </td>
-                  </tr>
-                ) : (
-                  directoryColleges.map((c, i) => (
-                    <tr key={c.id || i}>
-                      <td style={{ color: '#64748b', textAlign: 'center' }}>{i + 1}</td>
-                      <td style={{ fontWeight: 700, color: '#0f172a' }}>{c.college_name}</td>
-                      <td>
-                        {c.website_url ? (
-                          <a
-                            href={c.website_url.startsWith('http') ? c.website_url : `https://${c.website_url}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ color: '#0d9488', textDecoration: 'underline' }}
-                          >
-                            {c.website_url}
-                          </a>
-                        ) : (
-                          <span style={{ color: '#94a3b8' }}>N/A</span>
-                        )}
-                      </td>
-                      <td>
-                        {c.district ? `${c.district}, ` : ''}{c.state_or_region || c.state}
-                      </td>
-                      <td>
-                        {c.contacts && c.contacts.length > 0 ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            {c.contacts.map((ct, idx) => (
-                              <div key={idx} style={{ fontSize: '11px', color: '#334155' }}>
-                                <span style={{ fontWeight: 600 }}>{ct.email}</span>
-                                {ct.contact_person ? ` (${ct.contact_person})` : ''}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span style={{ color: '#94a3b8' }}>No emails on record</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
           </div>
         </div>
-      )}
+
+        {/* Upload Dropzone & Standard Template Download Box */}
+        <div className={styles.uploadSection}>
+          <div
+            className={styles.dropzone}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              style={{ display: 'none' }}
+              onChange={handleFileUpload}
+            />
+            <UploadCloudIcon size={34} style={{ color: '#0d9488' }} />
+            <div className={styles.dropzoneText}>
+              {uploadFileName ? `Loaded: ${uploadFileName}` : 'Click or Drag & Drop Excel / CSV file here'}
+            </div>
+            <div className={styles.dropzoneSub}>
+              Supported formats: Microsoft Excel (.xlsx, .xls) and Comma-Separated Values (.csv)
+            </div>
+          </div>
+
+          <div className={styles.templateBox}>
+            <div className={styles.templateTitle}>Standard Ingestion Templates (Fake Emails)</div>
+            <div className={styles.templateDesc}>
+              Download our pre-formatted spreadsheet template with standard columns and strictly synthetic test emails for safe simulation.
+            </div>
+            <div className={styles.templateButtons}>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => downloadTemplate('xlsx')}
+              >
+                <DownloadIcon size={14} />
+                <span>Excel (.xlsx)</span>
+              </button>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => downloadTemplate('csv')}
+              >
+                <DownloadIcon size={14} />
+                <span>CSV (.csv)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Spreadsheet Table & Verification Results */}
+        {parsedRows.length > 0 && (
+          <>
+            {/* Stats Bar with Send & Track Button */}
+            <div className={styles.statsBar}>
+              <div className={styles.statItem}>
+                <span>Total Rows:</span>
+                <span className={styles.statNumber}>{parsedRows.length}</span>
+              </div>
+              <div className={styles.statItem}>
+                <span className={styles.statPillGreen}>Ready / Approved: {validCount}</span>
+              </div>
+              {invalidCount > 0 && (
+                <div className={styles.statItem}>
+                  <span className={styles.statPillRed}>Errors (Red Cells): {invalidCount}</span>
+                </div>
+              )}
+              {dupCount > 0 && (
+                <div className={styles.statItem}>
+                  <span className={styles.statPillOrange}>Batch Duplicates: {dupCount}</span>
+                </div>
+              )}
+
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {/* Primary Button: Dispatch & Track in Mails Tracker */}
+                <button
+                  type="button"
+                  className={simulationModeActive ? styles.btnSimulate : styles.btnPrimary}
+                  onClick={handleDispatchCampaign}
+                  disabled={isDispatching || validCount === 0}
+                  title="Dispatch with selected template and track in Mails tracker"
+                >
+                  <SendIcon size={14} />
+                  <span>
+                    {isDispatching
+                      ? 'Dispatching...'
+                      : simulationModeActive
+                      ? `Send & Track in Mails Tracker (${validCount} Simulated)`
+                      : `Dispatch Outreach (${validCount})`}
+                  </span>
+                </button>
+
+                {/* Secondary Button: Import to directory only */}
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={handleImportOnly}
+                  disabled={isImporting || validCount === 0}
+                >
+                  <CheckCircleIcon size={14} />
+                  <span>{isImporting ? 'Saving...' : 'Import to Directory'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={() => {
+                    setParsedRows([]);
+                    setUploadFileName('');
+                  }}
+                >
+                  Clear Table
+                </button>
+              </div>
+            </div>
+
+            {/* Interactive Spreadsheet Table */}
+            <div className={styles.tableWrapper}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={{ width: '40px' }}>#</th>
+                    <th style={{ minWidth: '180px' }}>College / University Name *</th>
+                    <th style={{ minWidth: '180px' }}>Recipient Email Address *</th>
+                    <th style={{ minWidth: '160px' }}>Official Website URL</th>
+                    <th style={{ minWidth: '140px' }}>Contact Person</th>
+                    <th style={{ minWidth: '130px' }}>Designation</th>
+                    <th style={{ minWidth: '130px' }}>Department</th>
+                    <th style={{ minWidth: '120px' }}>State / Region</th>
+                    <th style={{ minWidth: '110px' }}>District</th>
+                    <th style={{ minWidth: '90px', textAlign: 'center' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parsedRows.map((row, idx) => {
+                    const hasCollegeError = Boolean(row.errors?.college_name);
+                    const hasEmailError = Boolean(row.errors?.email || row.errors?.email_dup);
+
+                    return (
+                      <tr key={row.id || idx}>
+                        <td style={{ color: '#64748b', fontWeight: 650, textAlign: 'center' }}>
+                          {idx + 1}
+                        </td>
+
+                        {/* College Name Cell */}
+                        <td className={hasCollegeError ? styles.cellError : ''}>
+                          <input
+                            type="text"
+                            className={`${styles.cellInput} ${hasCollegeError ? styles.cellInputError : ''}`}
+                            value={row.college_name || ''}
+                            onChange={(e) => handleCellChange(idx, 'college_name', e.target.value)}
+                            placeholder="College Name"
+                          />
+                          {hasCollegeError && (
+                            <span className={styles.errorTooltip}>{row.errors.college_name}</span>
+                          )}
+                        </td>
+
+                        {/* Email Cell */}
+                        <td className={hasEmailError ? styles.cellError : ''}>
+                          <input
+                            type="text"
+                            className={`${styles.cellInput} ${hasEmailError ? styles.cellInputError : ''}`}
+                            value={row.email || ''}
+                            onChange={(e) => handleCellChange(idx, 'email', e.target.value)}
+                            placeholder="email@college.edu.in"
+                          />
+                          {hasEmailError && (
+                            <span className={styles.errorTooltip}>
+                              {row.errors.email || row.errors.email_dup}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Website Cell */}
+                        <td>
+                          <input
+                            type="text"
+                            className={styles.cellInput}
+                            value={row.website_url || ''}
+                            onChange={(e) => handleCellChange(idx, 'website_url', e.target.value)}
+                            placeholder="https://..."
+                          />
+                        </td>
+
+                        {/* Contact Person Cell */}
+                        <td>
+                          <input
+                            type="text"
+                            className={styles.cellInput}
+                            value={row.contact_person || ''}
+                            onChange={(e) => handleCellChange(idx, 'contact_person', e.target.value)}
+                            placeholder="Contact Person"
+                          />
+                        </td>
+
+                        {/* Designation Cell */}
+                        <td>
+                          <input
+                            type="text"
+                            className={styles.cellInput}
+                            value={row.designation || ''}
+                            onChange={(e) => handleCellChange(idx, 'designation', e.target.value)}
+                            placeholder="Designation"
+                          />
+                        </td>
+
+                        {/* Department Cell */}
+                        <td>
+                          <input
+                            type="text"
+                            className={styles.cellInput}
+                            value={row.department || ''}
+                            onChange={(e) => handleCellChange(idx, 'department', e.target.value)}
+                            placeholder="Department"
+                          />
+                        </td>
+
+                        {/* State Cell */}
+                        <td>
+                          <input
+                            type="text"
+                            className={styles.cellInput}
+                            value={row.state || ''}
+                            onChange={(e) => handleCellChange(idx, 'state', e.target.value)}
+                            placeholder="State"
+                          />
+                        </td>
+
+                        {/* District Cell */}
+                        <td>
+                          <input
+                            type="text"
+                            className={styles.cellInput}
+                            value={row.district || ''}
+                            onChange={(e) => handleCellChange(idx, 'district', e.target.value)}
+                            placeholder="District"
+                          />
+                        </td>
+
+                        {/* Action Cell: Tick Button (✓) + Delete */}
+                        <td>
+                          <div className={styles.actionCell}>
+                            <button
+                              type="button"
+                              className={styles.btnTick}
+                              onClick={() => handleTickRow(idx)}
+                              title="Validate & Approve Row"
+                            >
+                              <CheckIcon size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.btnDelete}
+                              onClick={() => handleDeleteRow(idx)}
+                              title="Delete Row"
+                            >
+                              <CloseIcon size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

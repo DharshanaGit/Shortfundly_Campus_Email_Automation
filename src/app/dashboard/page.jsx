@@ -349,7 +349,11 @@ export default function DashboardPage() {
 
           {/* TAB: College Data Ingestion & Spreadsheet Review */}
           {activeTab === 'ingestion' && (
-            <CollegeDataIngestionView session={user} />
+            <CollegeDataIngestionView
+              session={user}
+              templates={templates}
+              onNavigateTab={setActiveTab}
+            />
           )}
 
           {/* TAB: Monthly College Automation & Monitoring */}

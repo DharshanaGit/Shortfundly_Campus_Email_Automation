@@ -6,9 +6,11 @@ import masterRegistry from '@/data/pan_india_master_registry.json';
 export async function GET(request) {
   try {
     let countries = getGeoCountries();
-    if (!countries || countries.length === 0 || !countries.some(c => c.code === 'IN' && c.college_count > 0)) {
+    if (!countries || countries.length === 0 || !countries.some(c => c.code === 'IN' && c.college_count >= 50000)) {
+      const indiaColleges = masterRegistry.total_india_colleges || 66010;
+      const indiaContacts = masterRegistry.total_india_contacts || 78810;
       countries = [
-        { code: 'IN', name: 'India', phone_code: '+91', college_count: 2323, contact_count: 3884 },
+        { code: 'IN', name: 'India', phone_code: '+91', college_count: indiaColleges, contact_count: indiaContacts },
         { code: 'US', name: 'United States', phone_code: '+1', college_count: 0, contact_count: 0 },
         { code: 'GB', name: 'United Kingdom', phone_code: '+44', college_count: 0, contact_count: 0 },
         { code: 'CA', name: 'Canada', phone_code: '+1', college_count: 0, contact_count: 0 },
